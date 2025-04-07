@@ -1,0 +1,53 @@
+---
+title: Sistem Mimarisi Tasarımı
+description: Akıllı sulama sisteminin genel mimarisi, bileşenleri ve veri akışı.
+icon: rectangle-group
+---
+
+# Sistem Mimarisi Tasarımı
+
+## Genel Mimari
+Akıllı sulama sistemimiz aşağıdaki ana bileşenlerden oluşacaktır:
+
+1. **Donanım Katmanı**:
+   - Raspberry Pi 4 (kontrol ünitesi)
+   - Toprak nem sensörleri (Capacitive Soil Moisture Sensor v1.2)
+   - Hava sıcaklık ve nem sensörü (DHT22)
+   - Röle modülü (Su pompası kontrolü için)
+   - Su pompası (12V DC)
+   - Güç kaynağı (Raspberry Pi için 5V, pompa için 12V)
+   - Bağlantı kabloları ve su hortumları
+
+2. **Yazılım Katmanı**:
+   - Raspberry Pi OS (Raspbian)
+   - Python tabanlı sensör veri toplama ve kontrol yazılımı
+   - SQLite veritabanı (veri depolama)
+   - Flask web sunucusu (API hizmetleri)
+   - MQTT broker (gerçek zamanlı iletişim)
+
+3. **Mobil Uygulama Katmanı**:
+   - Flutter tabanlı mobil uygulama (Android/iOS)
+   - Grafik gösterimi için Flutter Charts
+   - MQTT istemcisi
+   - REST API istemcisi
+
+4. **İletişim Katmanı**:
+   - Wi-Fi bağlantısı
+   - MQTT protokolü (gerçek zamanlı veri iletişimi)
+   - REST API (veri sorgulama ve kontrol komutları)
+
+## Veri Akışı
+1. Sensörler düzenli aralıklarla toprak nemi, hava sıcaklığı ve nem verilerini toplar
+2. Raspberry Pi bu verileri işler ve veritabanına kaydeder
+3. Veriler analiz edilir ve bitki türüne göre sulama kararı verilir
+4. Sulama gerekiyorsa, röle modülü aracılığıyla su pompası aktifleştirilir
+5. Tüm veriler ve sistem durumu MQTT üzerinden mobil uygulamaya iletilir
+6. Kullanıcı mobil uygulama üzerinden verileri görüntüler ve manuel kontrol sağlayabilir
+
+## Kontrol Algoritması
+Sistem, aşağıdaki faktörlere dayalı bir karar algoritması kullanacaktır:
+- Toprak nem seviyesi (bitki türüne göre optimum değerler)
+- Hava sıcaklığı ve nem oranı
+- Günün saati (gece/gündüz sulama tercihleri)
+- Kullanıcı tarafından belirlenen sulama programı
+- Geçmiş sulama verileri ve bitki tepkileri

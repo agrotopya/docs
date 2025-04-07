@@ -10,70 +10,37 @@
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
+      
+    
       {
-        "tab": "Guides",
+        "tab": "Roadmap",
         "groups": [
           {
-            "group": "Get Started",
+            "group": "Project Details",
             "pages": [
-              "introduction",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Essentials",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "groups": [
-          {
-            "group": "API Documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint Examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "roadmap/akilli_sulama_sistemi_rehberi",
+               "roadmap/data_analysis_code",
+                "roadmap/mobile_app_code",
+              "roadmap/project_analysis",
+              "roadmap/system_architecture",
+              "roadmap/hardware_components",
+              "roadmap/software_components",
+              "roadmap/raspberry_pi_setup",
+              "roadmap/raspberry_pi_os_setup",
+              "roadmap/sensor_connections",
+              "roadmap/pump_control_power",
+              "roadmap/database_structure",
+              "roadmap/sensor_reading_code",
+              "roadmap/pump_control_code"
+             
+             
+              
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
+    ]
+  
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -83,20 +50,20 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:bilgi@agrotopya.com.tr"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Home",
+      "href": "https://agrotopya.com.tr"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/agrotopya",
+      "github": "https://github.com/agrotopya",
+      "linkedin": "https://linkedin.com/company/agrotopya"
     }
   }
 }

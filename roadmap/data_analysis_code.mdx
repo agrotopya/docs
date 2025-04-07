@@ -1,0 +1,455 @@
+---
+title: Veri Analizi ve Karar Verme Algoritmaları
+description: Veri analizi ve karar verme algoritmaları için Python kodları
+icon: chart-bar
+---
+
+# Veri Analizi ve Karar Verme Algoritmaları
+
+Bu bölümde, akıllı sulama sistemimizde kullanılacak veri analizi ve karar verme algoritmaları için gerekli Python kodlarını bulacaksınız. Sensörlerden toplanan verilerin analizi, sulama kararlarının verilmesi ve bitki türüne göre optimizasyon için kod örnekleri verilmiştir.
+
+## 1. Veri Analizi Sınıfı
+
+```python
+# data_analyzer.py
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import sqlite3
+import os
+import json
+from datetime import datetime, timedelta
+import logging
+
+# Loglama ayarları
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("data_analyzer.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("DataAnalyzer")
+
+class DataAnalyzer:
+    def __init__(self, db_path="irrigation_data.db"):
+        """
+        Veri analizi sınıfı
+        
+        Args:
+            db_path: Veritabanı dosya yolu
+        """
+        self.db_path = db_path
+        self.conn = None
+        self.connect_db()
+        
+        # Grafik çıktıları için klasör
+        self.output_dir = "analysis_results"
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        logger.info("Veri analizi sınıfı başlatıldı")
+    
+    def connect_db(self):
+        """
+        Veritabanına bağlan
+        """
+        try:
+            self.conn = sqlite3.connect(self.db_path)
+            logger.info(f"Veritabanına bağlandı: {self.db_path}")
+        except Exception as e:
+            logger.error(f"Veritabanı bağlantı hatası: {str(e)}")
+            raise
+    
+    def close_db(self):
+        """
+        Veritabanı bağlantısını kapat
+        """
+        if self.conn:
+            self.conn.close()
+            logger.info("Veritabanı bağlantısı kapatıldı")
+    
+    def get_sensor_data(self, days=7, sensor_type=None):
+        """
+        Sensör verilerini al
+        
+        Args:
+            days: Kaç günlük veri alınacak
+            sensor_type: Sensör türü (None ise tüm sensörler)
+        
+        Returns:
+            pandas.DataFrame: Sensör verileri
+        """
+        try:
+            query = """
+                SELECT * FROM sensor_data
+                WHERE timestamp >= datetime('now', ?)
+            """
+            params = [f'-{days} days']
+            
+            if sensor_type:
+                query += " AND sensor_type = ?"
+                params.append(sensor_type)
+            
+            query += " ORDER BY timestamp ASC"
+            
+            df = pd.read_sql_query(query, self.conn, params=params)
+            
+            # Timestamp sütununu datetime'a dönüştür
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            logger.info(f"{len(df)} sensör verisi alındı")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Sensör verisi alma hatası: {str(e)}")
+            return pd.DataFrame()
+    
+    def get_watering_events(self, days=7):
+        """
+        Sulama olaylarını al
+        
+        Args:
+            days: Kaç günlük veri alınacak
+        
+        Returns:
+            pandas.DataFrame: Sulama olayları
+        """
+        try:
+            query = """
+                SELECT * FROM watering_events
+                WHERE timestamp >= datetime('now', ?)
+                ORDER BY timestamp ASC
+            """
+            
+            df = pd.read_sql_query(query, self.conn, params=[f'-{days} days'])
+            
+            # Timestamp sütununu datetime'a dönüştür
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            logger.info(f"{len(df)} sulama olayı alındı")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Sulama olayları alma hatası: {str(e)}")
+            return pd.DataFrame()
+    
+    def analyze_soil_moisture(self, days=7, zone_id=None):
+        """
+        Toprak nemi verilerini analiz et
+        
+        Args:
+            days: Kaç günlük veri analiz edilecek
+            zone_id: Bölge ID (None ise tüm bölgeler)
+        
+        Returns:
+            dict: Analiz sonuçları
+        """
+        try:
+            # Toprak nemi verilerini al
+            query = """
+                SELECT * FROM sensor_data
+                WHERE sensor_type = 'soil_moisture'
+                AND timestamp >= datetime('now', ?)
+            """
+            params = [f'-{days} days']
+            
+            if zone_id is not None:
+                query += " AND zone_id = ?"
+                params.append(zone_id)
+            
+            query += " ORDER BY timestamp ASC"
+            
+            df = pd.read_sql_query(query, self.conn, params=params)
+            
+            if df.empty:
+                logger.warning("Toprak nemi verisi bulunamadı")
+                return {"status": "no_data"}
+            
+            # Timestamp sütununu datetime'a dönüştür
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # Günlük ortalama, minimum ve maksimum değerler
+            daily_stats = df.groupby(df['timestamp'].dt.date).agg({
+                'value': ['mean', 'min', 'max', 'std']
+            }).reset_index()
+            
+            # Son değer
+            last_value = df.iloc[-1]['value']
+            last_timestamp = df.iloc[-1]['timestamp']
+            
+            # Trend analizi (son 24 saat)
+            last_day = df[df['timestamp'] >= datetime.now() - timedelta(days=1)]
+            
+            if len(last_day) > 1:
+                # Basit doğrusal regresyon
+                x = np.arange(len(last_day))
+                y = last_day['value'].values
+                slope, intercept = np.polyfit(x, y, 1)
+                trend = "decreasing" if slope < -0.5 else "increasing" if slope > 0.5 else "stable"
+            else:
+                trend = "unknown"
+            
+            # Grafik oluştur
+            plt.figure(figsize=(12, 6))
+            plt.plot(df['timestamp'], df['value'], 'b-')
+            plt.title(f'Toprak Nemi Değişimi (Son {days} gün)')
+            plt.xlabel('Tarih')
+            plt.ylabel('Nem Seviyesi (%)')
+            plt.grid(True)
+            
+            # Sulama olaylarını ekle
+            watering_events = self.get_watering_events(days)
+            
+            if not watering_events.empty:
+                plt.scatter(watering_events['timestamp'], 
+                           [10] * len(watering_events),  # Grafiğin alt kısmında göster
+                           color='green', marker='^', s=100, label='Sulama')
+                plt.legend()
+            
+            # Grafiği kaydet
+            zone_str = f"_zone{zone_id}" if zone_id is not None else ""
+            graph_path = os.path.join(self.output_dir, f"soil_moisture{zone_str}_{datetime.now().strftime('%Y%m%d')}.png")
+            plt.savefig(graph_path)
+            plt.close()
+            
+            # Sonuçları döndür
+            results = {
+                "status": "success",
+                "last_value": float(last_value),
+                "last_timestamp": last_timestamp.isoformat(),
+                "daily_stats": daily_stats.to_dict(orient='records'),
+                "trend": trend,
+                "graph_path": graph_path
+            }
+            
+            logger.info(f"Toprak nemi analizi tamamlandı: {results['trend']} trend")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Toprak nemi analizi hatası: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def analyze_environment(self, days=7):
+        """
+        Çevresel verileri (sıcaklık, nem) analiz et
+        
+        Args:
+            days: Kaç günlük veri analiz edilecek
+        
+        Returns:
+            dict: Analiz sonuçları
+        """
+        try:
+            # Sıcaklık ve nem verilerini al
+            temp_df = pd.read_sql_query("""
+                SELECT * FROM sensor_data
+                WHERE sensor_type = 'temperature'
+                AND timestamp >= datetime('now', ?)
+                ORDER BY timestamp ASC
+            """, self.conn, params=[f'-{days} days'])
+            
+            humidity_df = pd.read_sql_query("""
+                SELECT * FROM sensor_data
+                WHERE sensor_type = 'humidity'
+                AND timestamp >= datetime('now', ?)
+                ORDER BY timestamp ASC
+            """, self.conn, params=[f'-{days} days'])
+            
+            if temp_df.empty or humidity_df.empty:
+                logger.warning("Sıcaklık veya nem verisi bulunamadı")
+                return {"status": "no_data"}
+            
+            # Timestamp sütununu datetime'a dönüştür
+            temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'])
+            humidity_df['timestamp'] = pd.to_datetime(humidity_df['timestamp'])
+            
+            # Günlük ortalama, minimum ve maksimum değerler
+            temp_daily = temp_df.groupby(temp_df['timestamp'].dt.date).agg({
+                'value': ['mean', 'min', 'max']
+            }).reset_index()
+            
+            humidity_daily = humidity_df.groupby(humidity_df['timestamp'].dt.date).agg({
+                'value': ['mean', 'min', 'max']
+            }).reset_index()
+            
+            # Son değerler
+            last_temp = temp_df.iloc[-1]['value']
+            last_humidity = humidity_df.iloc[-1]['value']
+            last_timestamp = temp_df.iloc[-1]['timestamp']
+            
+            # Grafik oluştur
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+            
+            # Sıcaklık grafiği
+            ax1.plot(temp_df['timestamp'], temp_df['value'], 'r-')
+            ax1.set_title(f'Sıcaklık Değişimi (Son {days} gün)')
+            ax1.set_ylabel('Sıcaklık (°C)')
+            ax1.grid(True)
+            
+            # Nem grafiği
+            ax2.plot(humidity_df['timestamp'], humidity_df['value'], 'b-')
+            ax2.set_title(f'Nem Değişimi (Son {days} gün)')
+            ax2.set_xlabel('Tarih')
+            ax2.set_ylabel('Nem (%)')
+            ax2.grid(True)
+            
+            # Grafiği kaydet
+            graph_path = os.path.join(self.output_dir, f"environment_{datetime.now().strftime('%Y%m%d')}.png")
+            plt.savefig(graph_path)
+            plt.close()
+            
+            # Sonuçları döndür
+            results = {
+                "status": "success",
+                "last_temperature": float(last_temp),
+                "last_humidity": float(last_humidity),
+                "last_timestamp": last_timestamp.isoformat(),
+                "temperature_daily": temp_daily.to_dict(orient='records'),
+                "humidity_daily": humidity_daily.to_dict(orient='records'),
+                "graph_path": graph_path
+            }
+            
+            logger.info(f"Çevresel veri analizi tamamlandı")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Çevresel veri analizi hatası: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def analyze_watering_efficiency(self, days=30, zone_id=None):
+        """
+        Sulama verimliliğini analiz et
+        
+        Args:
+            days: Kaç günlük veri analiz edilecek
+            zone_id: Bölge ID (None ise tüm bölgeler)
+        
+        Returns:
+            dict: Analiz sonuçları
+        """
+        try:
+            # Sulama olaylarını al
+            watering_query = """
+                SELECT * FROM watering_events
+                WHERE timestamp >= datetime('now', ?)
+            """
+            watering_params = [f'-{days} days']
+            
+            if zone_id is not None:
+                watering_query += " AND zone_id = ?"
+                watering_params.append(zone_id)
+            
+            watering_query += " ORDER BY timestamp ASC"
+            
+            watering_df = pd.read_sql_query(watering_query, self.conn, params=watering_params)
+            
+            if watering_df.empty:
+                logger.warning("Sulama olayı bulunamadı")
+                return {"status": "no_data"}
+            
+            # Timestamp sütununu datetime'a dönüştür
+            watering_df['timestamp'] = pd.to_datetime(watering_df['timestamp'])
+            
+            # Toprak nemi verilerini al
+            moisture_query = """
+                SELECT * FROM sensor_data
+                WHERE sensor_type = 'soil_moisture'
+                AND timestamp >= datetime('now', ?)
+            """
+            moisture_params = [f'-{days} days']
+            
+            if zone_id is not None:
+                moisture_query += " AND zone_id = ?"
+                moisture_params.append(zone_id)
+            
+            moisture_query += " ORDER BY timestamp ASC"
+            
+            moisture_df = pd.read_sql_query(moisture_query, self.conn, params=moisture_params)
+            
+            if moisture_df.empty:
+                logger.warning("Toprak nemi verisi bulunamadı")
+                return {"status": "no_moisture_data"}
+            
+            # Timestamp sütununu datetime'a dönüştür
+            moisture_df['timestamp'] = pd.to_datetime(moisture_df['timestamp'])
+            
+            # Her sulama olayı için verimlilik hesapla
+            efficiency_data = []
+            
+            for _, watering in watering_df.iterrows():
+                watering_time = watering['timestamp']
+                duration = watering['duration']
+                
+                # Sulama öncesi nem (10 dakika önce)
+                before_time = watering_time - timedelta(minutes=10)
+                before_moisture = moisture_df[moisture_df['timestamp'] <= before_time]
+                
+                if before_moisture.empty:
+                    continue
+                
+                before_value = before_moisture.iloc[-1]['value']
+                
+                # Sulama sonrası nem (30 dakika sonra)
+                after_time = watering_time + timedelta(minutes=30)
+                after_moisture = moisture_df[moisture_df['timestamp'] >= after_time]
+                
+                if after_moisture.empty:
+                    continue
+                
+                after_value = after_moisture.iloc[0]['value']
+                
+                # Nem artışı
+                moisture_increase = after_value - before_value
+                
+                # Verimlilik (nem artışı / sulama süresi)
+                efficiency = moisture_increase / duration if duration > 0 else 0
+                
+                efficiency_data.append({
+                    'timestamp': watering_time,
+                    'before_moisture': before_value,
+                    'after_moisture': after_value,
+                    'moisture_increase': moisture_increase,
+                    'duration': duration,
+                    'efficiency': efficiency
+                })
+            
+            if not efficiency_data:
+                logger.warning("Verimlilik hesaplanamadı")
+                return {"status": "no_efficiency_data"}
+            
+            # Verimlilik verilerini DataFrame'e dönüştür
+            efficiency_df = pd.DataFrame(efficiency_data)
+            
+            # Ortalama verimlilik
+            avg_efficiency = efficiency_df['efficiency'].mean()
+            
+            # Grafik oluştur
+            plt.figure(figsize=(12, 6))
+            plt.bar(efficiency_df['timestamp'], efficiency_df['efficiency'])
+            plt.title(f'Sulama Verimliliği (Son {days} gün)')
+            plt.xlabel('Tarih')
+            plt.ylabel('Verimlilik (Nem Artışı / Süre)')
+            plt.grid(True)
+            
+            # Grafiği kaydet
+            zone_str = f"_zone{zone_id}" if zone_id is not None else ""
+            graph_path = os.path.join(self.output_dir, f"watering_efficiency{zone_str}_{datetime.now().strftime('%Y%m%d')}.png")
+            plt.savefig(graph_path)
+            plt.close()
+            
+            # Sonuçları döndür
+            results = {
+                "status": "success",
+                "last_efficiency": float(avg_efficiency),
+                "last_timestamp": datetime.now().isoformat(),
+                "efficiency_daily": efficiency_df.to_dict(orient='records'),
+                "graph_path": graph_path
+            }
+            
+            logger.info(f"Sulama verimliliği analizi tamamlandı")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Sulama verimliliği analizi hatası: {str(e)}")
+            return {"status": "error", "message": str(e)}

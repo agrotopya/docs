@@ -1,0 +1,227 @@
+---
+title: Raspberry Pi Kurulum Rehberi
+description: Akıllı sulama sistemi için Raspberry Pi donanımının ve temel yazılımının kurulum rehberi.
+icon: wrench-screwdriver
+---
+
+# Raspberry Pi Kurulum Rehberi
+
+## 1. Gerekli Malzemeler
+- Raspberry Pi 4 (4GB RAM önerilir)
+- 32GB veya daha büyük MicroSD kart
+- 5V 3A Güç adaptörü (USB-C)
+- HDMI kablo (micro-HDMI to HDMI)
+- USB klavye ve fare (ilk kurulum için)
+- Monitör (ilk kurulum için)
+- İnternet bağlantısı (Wi-Fi veya Ethernet)
+
+## 2. İşletim Sistemi Kurulumu
+
+### 2.1. Raspberry Pi Imager İndirme
+1. Bilgisayarınızda bir web tarayıcı açın
+2. [https://www.raspberrypi.org/software/](https://www.raspberrypi.org/software/) adresine gidin
+3. İşletim sisteminize uygun Raspberry Pi Imager sürümünü indirin
+4. İndirilen dosyayı çalıştırarak programı kurun
+
+### 2.2. İşletim Sistemi Yazma
+1. MicroSD kartı bilgisayarınıza takın
+2. Raspberry Pi Imager programını açın
+3. "CHOOSE OS" (İşletim Sistemi Seç) butonuna tıklayın
+4. "Raspberry Pi OS (32-bit)" veya "Raspberry Pi OS (64-bit)" seçeneğini seçin
+   - Not: 64-bit sürüm daha iyi performans sağlar ancak bazı eski uygulamalarla uyumluluk sorunları olabilir
+5. "CHOOSE STORAGE" (Depolama Seç) butonuna tıklayın ve MicroSD kartınızı seçin
+6. Dişli simgesine tıklayarak gelişmiş ayarları açın:
+   - Hostname: `smartirrigation` (veya istediğiniz bir isim)
+   - SSH'ı etkinleştirin ve kullanıcı adı/şifre belirleyin
+   - Wi-Fi ağınızı yapılandırın (SSID ve şifre)
+   - Yerel ayarları yapın (dil, saat dilimi, klavye düzeni)
+7. "WRITE" (Yaz) butonuna tıklayın ve onaylayın
+8. İşlem tamamlandığında MicroSD kartı bilgisayarınızdan çıkarın
+
+## 3. Raspberry Pi'yi Başlatma
+
+### 3.1. Donanım Bağlantıları
+1. MicroSD kartı Raspberry Pi'nin kart yuvasına takın
+2. HDMI kablosunu Raspberry Pi'nin micro-HDMI portuna ve monitöre bağlayın
+3. USB klavye ve fareyi USB portlarına bağlayın
+4. Ethernet kablosunu bağlayın (Wi-Fi kullanacaksanız gerekli değil)
+5. Son olarak güç adaptörünü bağlayın
+
+### 3.2. İlk Açılış
+1. Raspberry Pi otomatik olarak açılacak ve kurulum işlemi başlayacaktır
+2. İşletim sistemi yüklendikten sonra masaüstü görünecektir
+3. Gelişmiş ayarlarda SSH ve Wi-Fi yapılandırması yaptıysanız, bu ayarlar otomatik olarak uygulanacaktır
+
+## 4. Temel Yapılandırma
+
+### 4.1. Sistem Güncellemesi
+Terminal açın ve aşağıdaki komutları çalıştırın:
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+### 4.2. Gerekli Paketlerin Kurulumu
+```bash
+sudo apt install -y python3-pip python3-dev
+sudo apt install -y git
+sudo apt install -y mosquitto mosquitto-clients
+sudo apt install -y sqlite3
+```
+
+### 4.3. Python Kütüphanelerinin Kurulumu
+```bash
+sudo pip3 install RPi.GPIO
+sudo pip3 install adafruit-circuitpython-dht
+sudo pip3 install paho-mqtt
+sudo pip3 install flask flask-cors flask-jwt-extended
+sudo pip3 install numpy pandas
+```
+
+## 5. SSH ile Uzaktan Erişim
+
+### 5.1. SSH Etkinleştirme (Eğer kurulum sırasında yapılandırmadıysanız)
+1. Terminal açın
+2. Raspberry Pi yapılandırma aracını açın:
+   ```bash
+   sudo raspi-config
+   ```
+3. "Interface Options" (Arayüz Seçenekleri) seçin
+4. "SSH" seçin
+5. "Yes" (Evet) seçin
+6. "Finish" (Bitir) seçin ve yeniden başlatın
+
+### 5.2. SSH ile Bağlanma
+- Windows'ta PuTTY veya Windows Terminal kullanabilirsiniz
+- macOS veya Linux'ta Terminal uygulamasını kullanabilirsiniz
+
+```bash
+ssh pi@smartirrigation.local
+# veya
+ssh pi@IP_ADRESI
+```
+
+IP adresini bulmak için:
+```bash
+hostname -I
+```
+
+## 6. Otomatik Başlatma Ayarları
+
+### 6.1. Systemd Servis Dosyası Oluşturma
+1. Servis dosyası oluşturun:
+```bash
+sudo nano /etc/systemd/system/smart-irrigation.service
+```
+
+2. Aşağıdaki içeriği ekleyin:
+```
+[Unit]
+Description=Smart Irrigation System
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/smart-irrigation/main.py
+WorkingDirectory=/home/pi/smart-irrigation
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+
+3. Dosyayı kaydedin (Ctrl+O, Enter) ve çıkın (Ctrl+X)
+
+### 6.2. Servisi Etkinleştirme
+```bash
+sudo systemctl enable smart-irrigation.service
+sudo systemctl start smart-irrigation.service
+```
+
+### 6.3. Servis Durumunu Kontrol Etme
+```bash
+sudo systemctl status smart-irrigation.service
+```
+
+## 7. Güvenlik Önlemleri
+
+### 7.1. Varsayılan Şifreyi Değiştirme (Eğer kurulum sırasında yapmadıysanız)
+```bash
+passwd
+```
+
+### 7.2. Firewall Yapılandırması
+```bash
+sudo apt install -y ufw
+sudo ufw allow ssh
+sudo ufw allow 1883  # MQTT
+sudo ufw allow 5000  # Flask API
+sudo ufw enable
+```
+
+### 7.3. Düzenli Güncellemeler için Cron Job Oluşturma
+```bash
+sudo crontab -e
+```
+
+Aşağıdaki satırı ekleyin:
+```
+0 2 * * * apt update && apt upgrade -y
+```
+
+## 8. Sorun Giderme
+
+### 8.1. Yaygın Sorunlar ve Çözümleri
+
+#### Raspberry Pi Açılmıyor
+- Güç adaptörünün doğru bağlandığından emin olun
+- Farklı bir güç adaptörü deneyin
+- MicroSD kartın doğru takıldığından emin olun
+
+#### Wi-Fi Bağlantı Sorunları
+Wi-Fi yapılandırma dosyasını düzenleyin:
+```bash
+sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+Aşağıdaki içeriği ekleyin/düzenleyin:
+```
+country=TR
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="WIFI_ADI"
+    psk="WIFI_SIFRESI"
+    key_mgmt=WPA-PSK
+}
+```
+
+#### GPIO Pin Erişim Sorunları
+GPIO grubuna kullanıcıyı ekleyin:
+```bash
+sudo usermod -a -G gpio pi
+```
+
+### 8.2. Log Dosyalarını İnceleme
+Sistem loglarını kontrol edin:
+```bash
+sudo journalctl -u smart-irrigation.service
+```
+
+## 9. Yedekleme
+
+### 9.1. MicroSD Kart Yedekleme
+Raspberry Pi'yi kapatın ve MicroSD kartı çıkarın. Bilgisayarınızda:
+- Windows: Win32DiskImager kullanarak imaj oluşturun
+- macOS/Linux: 
+  ```bash
+  sudo dd if=/dev/mmcblk0 of=raspberrypi_backup.img bs=4M
+  ```
+
+### 9.2. Proje Dosyalarını Yedekleme
+```bash
+tar -czvf smart-irrigation-backup.tar.gz /home/pi/smart-irrigation
+```

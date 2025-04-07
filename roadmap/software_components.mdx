@@ -1,0 +1,104 @@
+---
+title: Yazılım Bileşenleri Planı
+description: Akıllı sulama sistemi için kullanılacak yazılım bileşenleri ve teknolojiler.
+icon: code-bracket
+---
+
+# Yazılım Bileşenleri Planı
+
+## 1. Raspberry Pi İşletim Sistemi
+- **Raspbian OS (Raspberry Pi OS)**: Raspberry Pi için optimize edilmiş Debian tabanlı işletim sistemi
+- **Kurulum Yöntemi**: Raspberry Pi Imager kullanılarak microSD karta kurulum
+- **Gerekli Yapılandırmalar**: 
+  - SSH etkinleştirme
+  - Wi-Fi yapılandırması
+  - Otomatik başlatma ayarları
+  - Güvenlik yapılandırmaları
+
+## 2. Sensör Veri Toplama Yazılımı
+- **Programlama Dili**: Python 3
+- **Kütüphaneler**:
+  - RPi.GPIO: GPIO pin kontrolü için
+  - Adafruit_DHT: DHT22 sensörü için
+  - time, datetime: Zamanlama işlemleri için
+  - sqlite3: Veritabanı işlemleri için
+  - paho-mqtt: MQTT iletişimi için
+- **Modüller**:
+  - `sensor_reader.py`: Sensörlerden veri okuma
+  - `data_processor.py`: Sensör verilerini işleme
+  - `pump_controller.py`: Su pompası kontrolü
+  - `scheduler.py`: Zamanlama ve görev planlama
+
+## 3. Veritabanı Sistemi
+- **Veritabanı**: SQLite (hafif, dosya tabanlı)
+- **Tablolar**:
+  - `sensor_data`: Sensör ölçümleri
+  - `watering_events`: Sulama kayıtları
+  - `system_logs`: Sistem günlükleri
+  - `plant_profiles`: Bitki türü profilleri
+  - `user_settings`: Kullanıcı ayarları
+- **Veri Yedekleme**: Günlük otomatik yedekleme
+
+## 4. Web API Sunucusu
+- **Framework**: Flask (Python)
+- **Endpoint'ler**:
+  - `/api/sensor-data`: Sensör verilerini sorgulama
+  - `/api/watering-events`: Sulama kayıtlarını sorgulama
+  - `/api/control`: Sistem kontrolü (manuel sulama, ayarlar)
+  - `/api/plant-profiles`: Bitki profili yönetimi
+  - `/api/system-status`: Sistem durumu bilgisi
+- **Güvenlik**: JWT tabanlı kimlik doğrulama
+
+## 5. MQTT Broker
+- **Yazılım**: Mosquitto MQTT Broker
+- **Konular (Topics)**:
+  - `smart-irrigation/sensor-data`: Sensör verileri
+  - `smart-irrigation/system-status`: Sistem durumu
+  - `smart-irrigation/commands`: Kontrol komutları
+  - `smart-irrigation/alerts`: Sistem uyarıları
+- **QoS Seviyesi**: 1 (en az bir kez teslim)
+
+## 6. Mobil Uygulama
+- **Framework**: Flutter (Dart)
+- **Hedef Platformlar**: Android ve iOS
+- **Ana Özellikler**:
+  - Gerçek zamanlı sensör verisi görüntüleme
+  - Grafiksel veri analizi
+  - Manuel sulama kontrolü
+  - Sulama programı oluşturma
+  - Bitki profili yönetimi
+  - Bildirim sistemi
+- **Paketler**:
+  - `flutter_mqtt`: MQTT bağlantısı için
+  - `http`: REST API istekleri için
+  - `fl_chart`: Grafik gösterimi için
+  - `shared_preferences`: Yerel veri depolama
+  - `flutter_local_notifications`: Bildirimler için
+
+## 7. Karar Verme Algoritması
+- **Algoritma Türü**: Kural tabanlı + Basit makine öğrenmesi
+- **Girdiler**:
+  - Toprak nem seviyesi
+  - Hava sıcaklığı ve nemi
+  - Bitki türü gereksinimleri
+  - Günün saati ve mevsim
+  - Geçmiş sulama verileri
+- **Çıktılar**:
+  - Sulama kararı (evet/hayır)
+  - Sulama süresi
+  - Sulama miktarı
+
+## 8. Sistem Güvenliği ve İzleme
+- **Log Sistemi**: Python logging modülü
+- **Hata Yakalama**: Try-except blokları ve hata işleme
+- **Sistem İzleme**: Watchdog timer ve otomatik yeniden başlatma
+- **Veri Doğrulama**: Sensör verilerinin geçerlilik kontrolü
+
+## 9. Geliştirme ve Test Ortamı
+- **IDE**: Visual Studio Code veya PyCharm
+- **Versiyon Kontrolü**: Git (GitHub veya GitLab)
+- **Test Araçları**: 
+  - pytest: Birim testleri için
+  - Postman: API testleri için
+  - Flutter test: Mobil uygulama testleri için
+- **CI/CD**: GitHub Actions veya GitLab CI

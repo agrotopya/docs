@@ -1,0 +1,282 @@
+---
+title: Su Pompası Kontrol Devresi ve Güç Kaynağı
+description: Akıllı sulama sistemi için su pompası kontrol devresi ve güç kaynağı bağlantı detayları.
+icon: bolt
+---
+
+# Su Pompası Kontrol Devresi ve Güç Kaynağı Bağlantıları
+
+## 1. Su Pompası Kontrol Devresi
+
+### 1.1. Gerekli Bileşenler
+- 12V DC Su Pompası
+- 4 Kanallı Röle Modülü (5V)
+- 12V DC Güç Adaptörü (en az 2A)
+- Bağlantı kabloları
+- Terminal blokları (opsiyonel)
+- Su hortumu
+- Kablo bağları ve kablo kanalları
+
+### 1.2. Röle Modülü Çalışma Prensibi
+Röle modülü, düşük voltajlı kontrol sinyalleri (Raspberry Pi'den gelen 3.3V/5V) ile yüksek voltajlı devreleri (12V DC su pompası) kontrol etmemizi sağlar. Röle, elektromanyetik bir anahtardır ve Raspberry Pi'den gelen dijital sinyalle tetiklenir.
+
+### 1.3. Bağlantı Şeması
+
+```
++---------------+          +----------------+          +----------------+
+|               |          |                |          |                |
+| Raspberry Pi  |--GPIO--->|  Röle Modülü   |--COM/NO->| Su Pompası     |
+|               |--5V----->|  (4 Kanal)     |          | (12V DC)       |
+|               |--GND---->|                |          |                |
++---------------+          +----------------+          +----------------+
+                                  ^                          ^
+                                  |                          |
+                                  |                          |
+                           +----------------+                |
+                           |                |                |
+                           | 12V DC Güç     |----------------+
+                           | Adaptörü       |
+                           |                |
+                           +----------------+
+```
+
+### 1.4. Detaylı Bağlantı Adımları
+
+1. **Röle Modülü Bağlantısı**:
+   - VCC pini -> Raspberry Pi 5V (Pin 2 veya 4)
+   - GND pini -> Raspberry Pi GND (Pin 6, 9, 14, 20, 25, 30, 34 veya 39)
+   - IN1 pini -> Raspberry Pi GPIO17 (Pin 11)
+   - IN2, IN3, IN4 pinleri -> Opsiyonel olarak diğer GPIO pinlerine bağlanabilir (farklı pompaları kontrol etmek için)
+
+2. **Su Pompası Bağlantısı**:
+   - Pompanın (+) ucu -> Röle modülünün NO (Normally Open) kontağına
+   - Röle modülünün COM (Common) kontağı -> 12V güç adaptörünün (+) ucuna
+   - Pompanın (-) ucu -> 12V güç adaptörünün (-) ucuna
+
+3. **Güvenlik Önlemleri**:
+   - Tüm bağlantıları yapmadan önce güç kaynaklarının kapalı olduğundan emin olun
+   - Kabloların su ile temas etmemesi için yalıtım yapın
+   - Röle modülünün ve güç adaptörünün su geçirmez bir muhafaza içinde olduğundan emin olun
+
+### 1.5. Röle Kontrol Mantığı
+
+Röle modülü, LOW (0V) sinyali ile tetiklenir (aktif düşük mantık):
+- GPIO pini LOW (0V) olduğunda -> Röle aktif olur -> Pompa çalışır
+- GPIO pini HIGH (3.3V) olduğunda -> Röle pasif olur -> Pompa durur
+
+Python kodu örneği:
+```python
+import RPi.GPIO as GPIO
+import time
+
+# GPIO pin numarası (BCM numaralandırması)
+PUMP_RELAY_PIN = 17
+
+# GPIO ayarları
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(PUMP_RELAY_PIN, GPIO.OUT)
+GPIO.output(PUMP_RELAY_PIN, GPIO.HIGH)  # Başlangıçta pompa kapalı
+
+try:
+    # Pompayı 5 saniye çalıştır
+    print("Pompa açılıyor...")
+    GPIO.output(PUMP_RELAY_PIN, GPIO.LOW)  # Pompayı aç
+    time.sleep(5)
+    
+    # Pompayı kapat
+    print("Pompa kapatılıyor...")
+    GPIO.output(PUMP_RELAY_PIN, GPIO.HIGH)  # Pompayı kapat
+    
+finally:
+    # GPIO pinlerini temizle
+    GPIO.cleanup()
+```
+
+## 2. Güç Kaynağı ve Bağlantı Detayları
+
+### 2.1. Güç Gereksinimleri
+
+| Bileşen | Voltaj | Akım (Yaklaşık) |
+|---------|--------|-----------------|
+| Raspberry Pi 4 | 5V | 2.5A (maksimum) |
+| Su Pompası | 12V | 0.5-2A (modele bağlı) |
+| Sensörler | 3.3V/5V | 100-200mA (toplam) |
+| Röle Modülü | 5V | 100mA |
+
+### 2.2. Güç Kaynağı Seçimi
+
+1. **Raspberry Pi için**:
+   - Önerilen: 5V 3A USB-C güç adaptörü
+   - Resmi Raspberry Pi güç adaptörü tercih edilmelidir
+   - Güç kesintilerine karşı UPS (Kesintisiz Güç Kaynağı) kullanılabilir
+
+2. **Su Pompası için**:
+   - Önerilen: 12V 2A DC güç adaptörü
+   - Pompa modelinizin akım gereksinimlerine göre daha yüksek amperli adaptör seçilebilir
+   - Su pompası için ayrı bir güç kaynağı kullanmak, Raspberry Pi'yi korumak için önemlidir
+
+### 2.3. Güç Dağıtım Şeması
+
+```
+                  +------------------+
+                  |                  |
+                  | 5V 3A USB-C      |
+                  | Güç Adaptörü     |
+                  |                  |
+                  +--------+---------+
+                           |
+                           v
+                  +------------------+
+                  |                  |
+                  | Raspberry Pi 4   |
+                  |                  |
+                  +--+----------+----+
+                     |          |
+                     v          v
+            +------------------+ +------------------+
+            |                  | |                  |
+            | Sensörler        | | Röle Modülü      |
+            | (3.3V/5V)        | | (5V)             |
+            |                  | |                  |
+            +------------------+ +------------------+
+                                          |
+                                          v
+                               +------------------+
+                               |                  |
+                               | 12V 2A DC        |
+                               | Güç Adaptörü     |
+                               |                  |
+                               +--------+---------+
+                                        |
+                                        v
+                               +------------------+
+                               |                  |
+                               | Su Pompası       |
+                               | (12V DC)         |
+                               |                  |
+                               +------------------+
+```
+
+### 2.4. Kablo Seçimi ve Bağlantı İpuçları
+
+1. **Kablo Kalınlığı**:
+   - Raspberry Pi ve sensörler için: 22-24 AWG
+   - Su pompası için: 18-20 AWG (daha kalın)
+
+2. **Kablo Uzunluğu**:
+   - Mümkün olduğunca kısa tutun
+   - Uzun kablolar voltaj düşüşüne neden olabilir
+
+3. **Bağlantı Yöntemleri**:
+   - Breadboard: Prototip aşamasında
+   - Lehimleme: Kalıcı kurulum için
+   - Terminal blokları: Kolay söküp takma için
+   - Konnektörler: Modüler bağlantılar için
+
+4. **Güvenlik Önlemleri**:
+   - Tüm bağlantıları yalıtın
+   - Su geçirmez muhafaza kullanın
+   - Kabloları düzenli tutun ve etiketleyin
+   - Aşırı akım koruması için sigorta kullanın
+
+### 2.5. Güç Tasarrufu İpuçları
+
+1. **Uyku Modu**:
+   - Raspberry Pi'yi sürekli çalıştırmak yerine, belirli aralıklarla uyandırın
+   - Sensör okuma ve sulama işlemleri arasında düşük güç moduna alın
+
+2. **Güneş Enerjisi Seçeneği**:
+   - Dış mekan kurulumları için güneş paneli ve şarj edilebilir batarya kullanılabilir
+   - Minimum gereksinimler:
+     - 20W güneş paneli
+     - 12V 7Ah akü
+     - Şarj kontrol ünitesi
+
+3. **Güç Tüketimi İzleme**:
+   - Sistemin güç tüketimini izlemek için akım sensörü (INA219) eklenebilir
+   - Anormal güç tüketimi durumunda uyarı verilebilir
+
+## 3. Su Pompası Seçimi ve Kurulumu
+
+### 3.1. Su Pompası Türleri
+
+1. **Dalgıç Pompa**:
+   - Su içine yerleştirilir
+   - Yüksek verimlilik
+   - Sessiz çalışma
+   - Önerilen: 12V DC dalgıç pompa, 240L/saat kapasiteli
+
+2. **Peristaltik Pompa**:
+   - Hassas su miktarı kontrolü
+   - Düşük akış hızı
+   - Saksı bitkileri için ideal
+   - Önerilen: 12V DC peristaltik pompa, 100mL/dakika kapasiteli
+
+3. **Santrifüj Pompa**:
+   - Yüksek basınç
+   - Büyük alanlar için uygun
+   - Daha fazla güç tüketimi
+   - Önerilen: 12V DC santrifüj pompa, 600L/saat kapasiteli
+
+### 3.2. Su Pompası Kurulum Adımları
+
+1. **Pompa Yerleşimi**:
+   - Su kaynağına yakın konumlandırın
+   - Yağmur ve doğrudan güneş ışığından koruyun
+   - Kolay erişilebilir bir yere monte edin
+
+2. **Su Hortumu Bağlantısı**:
+   - Uygun çapta hortum kullanın (genellikle 8-10mm)
+   - Sızıntı olmaması için kelepçe kullanın
+   - Hortumu bitkilere doğru yönlendirin
+
+3. **Damla Sulama Sistemi**:
+   - Ana hortumdan ayrılan ince hortumlar kullanın
+   - Her bitkinin kök bölgesine damlatıcı yerleştirin
+   - Eşit su dağılımı için basınç dengeleyici kullanın
+
+4. **Test ve Kalibrasyon**:
+   - Pompanın su basma kapasitesini ölçün
+   - Farklı çalışma sürelerinde ne kadar su verdiğini hesaplayın
+   - Bu değerleri yazılımda kullanmak üzere kaydedin
+
+## 4. Sorun Giderme
+
+### 4.1. Yaygın Sorunlar ve Çözümleri
+
+1. **Pompa Çalışmıyor**:
+   - Güç kaynağını kontrol edin
+   - Röle bağlantılarını kontrol edin
+   - GPIO pin numarasını doğrulayın
+   - Pompanın sağlam olduğundan emin olun
+
+2. **Düşük Su Basıncı**:
+   - Hortumda tıkanıklık olup olmadığını kontrol edin
+   - Pompanın su içinde olduğundan emin olun (dalgıç pompa için)
+   - Güç kaynağının yeterli akım sağladığını kontrol edin
+
+3. **Röle Tıkırtısı**:
+   - Röle hızlı açılıp kapanıyorsa, yazılımda debounce (sıçrama önleme) uygulayın
+   - Röle tetikleme mantığını kontrol edin
+
+4. **Su Sızıntısı**:
+   - Tüm bağlantıları kontrol edin ve sıkın
+   - Hasarlı hortumları değiştirin
+   - Bağlantı noktalarını su geçirmez bantla sarın
+
+### 4.2. Bakım İpuçları
+
+1. **Düzenli Kontroller**:
+   - Haftada bir tüm bağlantıları kontrol edin
+   - Pompa filtresini temizleyin
+   - Damlatıcıları tıkanıklığa karşı kontrol edin
+
+2. **Kış Hazırlığı**:
+   - Donma riski varsa, sistemi boşaltın
+   - Pompayı ve hassas elektronik bileşenleri sökün
+   - Su hortumlarını kaldırın veya koruyun
+
+3. **Yedek Parçalar**:
+   - Yedek pompa bulundurun
+   - Ekstra röle modülü hazır tutun
+   - Yedek hortum ve bağlantı parçaları edinin

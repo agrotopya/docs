@@ -1,0 +1,249 @@
+---
+title: Sensör Bağlantı Şemaları
+description: Akıllı sulama sistemi için sensörlerin Raspberry Pi'ye bağlantı şemaları.
+icon: link
+---
+
+# Sensör Bağlantı Şemaları
+
+## 1. Genel Bağlantı Diyagramı
+
+```
++---------------+          +------------------+          +----------------+
+|               |          |                  |          |                |
+| Toprak Nem    |--------->|                  |          | Su Pompası     |
+| Sensörleri    |          |                  |          | (12V DC)       |
+|               |          |                  |          |                |
++---------------+          |                  |          +----------------+
+                           |                  |                 ^
++---------------+          |   Raspberry Pi   |                 |
+|               |          |                  |                 |
+| DHT22 Sıcaklık |--------->|                  |--------->+----------------+
+| ve Nem Sensörü |          |                  |          |                |
+|               |          |                  |          | Röle Modülü     |
++---------------+          |                  |          |                |
+                           |                  |          +----------------+
++---------------+          |                  |
+|               |          |                  |
+| Opsiyonel     |--------->|                  |
+| Sensörler     |          |                  |
+|               |          |                  |
++---------------+          +------------------+
+```
+
+## 2. Raspberry Pi GPIO Pin Diyagramı
+
+```
++-----+-----+---------+------+---+---Pi 4B---+---+------+---------+-----+-----+
+| BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name     | wPi | BCM |
++-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
+|     |     |    3.3V |      |   |  1 || 2  |   |      | 5V       |     |     |
+|   2 |   8 |    SDA1 |   IN | 1 |  3 || 4  |   |      | 5V       |     |     |
+|   3 |   9 |    SCL1 |   IN | 1 |  5 || 6  |   |      | GND      |     |     |
+|   4 |   7 | GPIO. 7 |   IN | 1 |  7 || 8  | 1 | IN   | TxD      | 15  | 14  |
+|     |     |     GND |      |   |  9 || 10 | 1 | IN   | RxD      | 16  | 15  |
+|  17 |   0 | GPIO. 0 |   IN | 0 | 11 || 12 | 0 | IN   | GPIO. 1  | 1   | 18  |
+|  27 |   2 | GPIO. 2 |   IN | 0 | 13 || 14 |   |      | GND      |     |     |
+|  22 |   3 | GPIO. 3 |   IN | 0 | 15 || 16 | 0 | IN   | GPIO. 4  | 4   | 23  |
+|     |     |    3.3V |      |   | 17 || 18 | 0 | IN   | GPIO. 5  | 5   | 24  |
+|  10 |  12 |    MOSI |   IN | 0 | 19 || 20 |   |      | GND      |     |     |
+|   9 |  13 |    MISO |   IN | 0 | 21 || 22 | 0 | IN   | GPIO. 6  | 6   | 25  |
+|  11 |  14 |    SCLK |   IN | 0 | 23 || 24 | 1 | IN   | CE0      | 10  | 8   |
+|     |     |     GND |      |   | 25 || 26 | 1 | IN   | CE1      | 11  | 7   |
+|   0 |  30 |    SDA0 |   IN | 1 | 27 || 28 | 1 | IN   | SCL0     | 31  | 1   |
+|   5 |  21 | GPIO.21 |   IN | 1 | 29 || 30 |   |      | GND      |     |     |
+|   6 |  22 | GPIO.22 |   IN | 1 | 31 || 32 | 0 | IN   | GPIO.26  | 26  | 12  |
+|  13 |  23 | GPIO.23 |   IN | 0 | 33 || 34 |   |      | GND      |     |     |
+|  19 |  24 | GPIO.24 |   IN | 0 | 35 || 36 | 0 | IN   | GPIO.27  | 27  | 16  |
+|  26 |  25 | GPIO.25 |   IN | 0 | 37 || 38 | 0 | IN   | GPIO.28  | 28  | 20  |
+|     |     |     GND |      |   | 39 || 40 | 0 | IN   | GPIO.29  | 29  | 21  |
++-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
+```
+
+## 3. Toprak Nem Sensörü Bağlantısı
+
+### 3.1. Kapasitif Toprak Nem Sensörü Pinleri
+- VCC: Güç girişi (3.3V)
+- GND: Toprak
+- AOUT: Analog çıkış
+- DOUT: Dijital çıkış (kullanılmayacak)
+
+### 3.2. Bağlantı Şeması
+```
+Toprak Nem Sensörü 1:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH0
+
+Toprak Nem Sensörü 2:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH1
+
+Toprak Nem Sensörü 3:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH2
+```
+
+### 3.3. MCP3008 ADC Bağlantısı (Analog-Dijital Dönüştürücü)
+Raspberry Pi'nin analog giriş pini olmadığı için, toprak nem sensörlerinin analog çıkışlarını okumak için MCP3008 ADC kullanılacaktır.
+
+```
+MCP3008:
+- VDD  -----> Raspberry Pi 3.3V (Pin 1)
+- VREF -----> Raspberry Pi 3.3V (Pin 1)
+- AGND -----> Raspberry Pi GND (Pin 6)
+- DGND -----> Raspberry Pi GND (Pin 6)
+- CLK  -----> Raspberry Pi SCLK (Pin 23 / GPIO 11)
+- DOUT -----> Raspberry Pi MISO (Pin 21 / GPIO 9)
+- DIN  -----> Raspberry Pi MOSI (Pin 19 / GPIO 10)
+- CS   -----> Raspberry Pi CE0 (Pin 24 / GPIO 8)
+```
+
+## 4. DHT22 Sıcaklık ve Nem Sensörü Bağlantısı
+
+### 4.1. DHT22 Sensör Pinleri
+- Pin 1: VCC (3.3V-5V)
+- Pin 2: Veri (DATA)
+- Pin 3: Kullanılmıyor
+- Pin 4: GND
+
+### 4.2. Bağlantı Şeması
+```
+DHT22:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- DATA -----> Raspberry Pi GPIO4 (Pin 7)
+- GND  -----> Raspberry Pi GND (Pin 6)
+```
+
+### 4.3. Pull-up Direnci
+DHT22 sensörü için 10K ohm pull-up direnci kullanılmalıdır:
+```
+DHT22 DATA pini -----> 10K ohm direnç -----> VCC (3.3V)
+```
+
+## 5. Röle Modülü Bağlantısı
+
+### 5.1. 4 Kanallı Röle Modülü Pinleri
+- VCC: Güç girişi (5V)
+- GND: Toprak
+- IN1: Kanal 1 kontrol girişi
+- IN2: Kanal 2 kontrol girişi
+- IN3: Kanal 3 kontrol girişi
+- IN4: Kanal 4 kontrol girişi
+
+### 5.2. Bağlantı Şeması
+```
+Röle Modülü:
+- VCC -----> Raspberry Pi 5V (Pin 2)
+- GND -----> Raspberry Pi GND (Pin 6)
+- IN1 -----> Raspberry Pi GPIO17 (Pin 11)
+- IN2 -----> Raspberry Pi GPIO27 (Pin 13)
+- IN3 -----> Raspberry Pi GPIO22 (Pin 15)
+- IN4 -----> Raspberry Pi GPIO23 (Pin 16)
+```
+
+### 5.3. Röle Çıkışları
+```
+Röle 1 (IN1):
+- COM -----> 12V Güç Kaynağı (+)
+- NO  -----> Su Pompası (+)
+
+Su Pompası (-) -----> 12V Güç Kaynağı (-)
+```
+
+## 6. Opsiyonel Sensörler
+
+### 6.1. Yağmur Sensörü
+```
+Yağmur Sensörü:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH3
+- DOUT -----> Raspberry Pi GPIO24 (Pin 18)
+```
+
+### 6.2. Işık Sensörü (LDR)
+```
+LDR Sensörü:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH4
+```
+
+### 6.3. Su Seviye Sensörü
+```
+Su Seviye Sensörü:
+- VCC  -----> Raspberry Pi 3.3V (Pin 1)
+- GND  -----> Raspberry Pi GND (Pin 6)
+- AOUT -----> MCP3008 CH5
+```
+
+## 7. Tam Devre Şeması
+
+```
+                                  +---------------------+
+                                  |                     |
+                                  |    Raspberry Pi     |
++------------------+             |                     |
+|                  |             |  +---------------+  |
+| Toprak Nem       |---AOUT----->|  |               |  |
+| Sensörü 1        |---VCC------>|  |               |  |
+|                  |---GND------>|  |               |  |
++------------------+             |  |               |  |
+                                  |  |               |  |
++------------------+             |  |               |  |         +------------------+
+|                  |---AOUT----->|  |    MCP3008    |  |         |                  |
+| Toprak Nem       |---VCC------>|  |    (ADC)      |  |         | 12V Güç Kaynağı  |
+| Sensörü 2        |---GND------>|  |               |  |         |                  |
++------------------+             |  |               |  |         +--------+---------+
+                                  |  |               |  |                  |
++------------------+             |  |               |  |                  |
+|                  |---AOUT----->|  |               |  |                  |
+| Toprak Nem       |---VCC------>|  +---------------+  |                  |
+| Sensörü 3        |---GND------>|                     |                  |
++------------------+             |                     |                  |
+                                  |                     |                  |
++------------------+             |                     |         +--------+---------+
+|                  |---DATA----->| GPIO4               |         |                  |
+| DHT22 Sıcaklık   |---VCC------>| 3.3V                |-------->| 4 Kanallı Röle   |
+| ve Nem Sensörü   |---GND------>| GND                 |         | Modülü           |
++------------------+             |                     |         |                  |
+                                  |                     |         +--------+---------+
++------------------+             | GPIO17              |                  |
+|                  |             | GPIO27              |                  |
+| Opsiyonel        |------------>| GPIO22              |                  |
+| Sensörler        |             | GPIO23              |                  |
+|                  |             |                     |                  |
++------------------+             +---------------------+                  |
+                                                                          |
+                                                                 +--------+---------+
+                                                                 |                  |
+                                                                 | Su Pompası       |
+                                                                 | (12V DC)         |
+                                                                 |                  |
+                                                                 +------------------+
+```
+
+## 8. Montaj ve Bağlantı İpuçları
+
+1. **Kablo Uzunlukları**: Sensörler ve Raspberry Pi arasındaki mesafeye göre uygun uzunlukta kablolar kullanın. Uzun kablolar sinyal kaybına neden olabilir.
+
+2. **Su Geçirmezlik**: Dış mekan kurulumlarında tüm elektronik bileşenleri su geçirmez muhafazalara yerleştirin.
+
+3. **Topraklama**: Tüm GND bağlantılarının doğru şekilde yapıldığından emin olun.
+
+4. **Güç Kaynağı**: Raspberry Pi ve su pompası için ayrı güç kaynakları kullanın. Raspberry Pi'yi pompanın yaratabileceği voltaj dalgalanmalarından koruyun.
+
+5. **Kablo Etiketleme**: Tüm kabloları etiketleyin, özellikle çok sayıda sensör kullanıyorsanız bu çok önemlidir.
+
+6. **Test**: Her bağlantıyı ayrı ayrı test edin, tüm sistemi bir kerede bağlamayın.
+
+7. **Güvenlik**: 12V ve röle bağlantılarını yaparken güç kaynağının kapalı olduğundan emin olun.
+
+8. **Sensör Yerleşimi**: Toprak nem sensörlerini bitkilerin kök bölgesine yakın yerleştirin.
+
+9. **Kalibrasyon**: Toprak nem sensörlerini kullanmadan önce kalibre edin (kuru toprak ve ıslak toprak değerlerini ölçün).
+
+10. **Yedek Parçalar**: Arıza durumunda hızlı değişim için yedek sensörler bulundurun.

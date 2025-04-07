@@ -1,0 +1,400 @@
+---
+title: Raspberry Pi İşletim Sistemi Kurulumu
+description: Akıllı sulama sistemi için Raspberry Pi işletim sistemi kurulum adımları.
+icon: command-line
+---
+
+# Raspberry Pi İşletim Sistemi Kurulum Rehberi
+
+Bu rehber, Akıllı Sulama Sistemi projesi için Raspberry Pi kurulumunu adım adım açıklamaktadır. Raspberry Pi, sistemin merkezi kontrol ünitesi olarak görev yapacak ve sensörlerden veri alıp, su pompalarını kontrol edecektir.
+
+## 1. Gerekli Malzemeler
+
+- Raspberry Pi 4 (en az 2GB RAM önerilir)
+- Minimum 16GB (tercihen 32GB) microSD kart
+- 5V 3A USB-C güç adaptörü
+- HDMI kablo (ilk kurulum için)
+- USB klavye ve fare (ilk kurulum için)
+- Ethernet kablosu veya Wi-Fi bağlantısı
+- Bilgisayar (işletim sistemi kurulumu için)
+
+## 2. Raspberry Pi OS Kurulumu
+
+### 2.1. Raspberry Pi Imager İndirme
+
+1. Bilgisayarınızda bir web tarayıcı açın ve [Raspberry Pi resmi web sitesine](https://www.raspberrypi.org/software/) gidin.
+2. "Raspberry Pi Imager" yazılımını işletim sisteminize uygun sürümünü indirin:
+   - Windows için: Raspberry Pi Imager for Windows
+   - macOS için: Raspberry Pi Imager for macOS
+   - Ubuntu için: Raspberry Pi Imager for Ubuntu
+3. İndirilen kurulum dosyasını çalıştırın ve kurulum sihirbazını takip ederek yazılımı yükleyin.
+
+### 2.2. İşletim Sistemi Kurulumu
+
+1. Raspberry Pi Imager uygulamasını açın.
+2. "CHOOSE OS" (İşletim Sistemi Seç) butonuna tıklayın.
+3. "Raspberry Pi OS (32-bit)" seçeneğini seçin. Bu, tam masaüstü ortamı içeren standart sürümdür.
+   - Alternatif olarak, sadece komut satırı arayüzü istiyorsanız "Raspberry Pi OS Lite (32-bit)" seçeneğini seçebilirsiniz.
+4. "CHOOSE STORAGE" (Depolama Seç) butonuna tıklayın ve microSD kartınızı seçin.
+5. "WRITE" (Yaz) butonuna tıklayın ve onay mesajını kabul edin.
+6. İşlem tamamlanana kadar bekleyin. Bu, microSD kartın boyutuna bağlı olarak birkaç dakika sürebilir.
+
+### 2.3. Gelişmiş Ayarlar (İsteğe Bağlı)
+
+Raspberry Pi Imager'da "WRITE" butonuna tıklamadan önce, CTRL+SHIFT+X tuş kombinasyonunu kullanarak gelişmiş ayarlar menüsünü açabilirsiniz. Burada:
+
+1. Hostname (cihaz adı) ayarlayabilirsiniz (örn. "irrigation-system").
+2. SSH'ı etkinleştirebilirsiniz (uzaktan erişim için).
+3. Wi-Fi ayarlarını yapılandırabilirsiniz (SSID ve şifre).
+4. Kullanıcı adı ve şifre belirleyebilirsiniz (varsayılan: kullanıcı adı "pi", şifre "raspberry").
+5. Yerel ayarları (dil, saat dilimi, klavye düzeni) yapılandırabilirsiniz.
+
+Bu ayarları yaparsanız, Raspberry Pi'yi ilk açılışta doğrudan ağa bağlanacak ve uzaktan erişim için hazır olacak şekilde yapılandırmış olursunuz.
+
+## 3. İlk Açılış ve Temel Yapılandırma
+
+### 3.1. Raspberry Pi'yi Bağlama
+
+1. MicroSD kartı Raspberry Pi'nin microSD kart yuvasına takın.
+2. HDMI kablosunu Raspberry Pi'nin HDMI portuna ve monitörünüze bağlayın.
+3. USB klavye ve fareyi Raspberry Pi'nin USB portlarına bağlayın.
+4. Ethernet kablosunu bağlayın veya Wi-Fi kullanacaksanız bu adımı atlayın.
+5. Son olarak, güç adaptörünü Raspberry Pi'nin USB-C portuna bağlayın.
+
+### 3.2. İlk Açılış Yapılandırması
+
+Raspberry Pi ilk kez açıldığında, kurulum sihirbazı başlayacaktır:
+
+1. Ekrandaki talimatları izleyerek ülke, dil, saat dilimi ve klavye düzenini ayarlayın.
+2. İstenirse, Wi-Fi ağınızı seçin ve şifrenizi girin.
+3. Yazılım güncellemelerini kontrol edin ve yükleyin.
+4. İstenirse, Raspberry Pi'yi yeniden başlatın.
+
+### 3.3. Temel Sistem Ayarları
+
+Raspberry Pi başlatıldıktan sonra, bazı temel sistem ayarlarını yapılandırmanız gerekir:
+
+1. Raspberry Pi Yapılandırma Aracını açın:
+   - Masaüstünden: Raspberry menüsü > Tercihler > Raspberry Pi Yapılandırma
+   - Veya terminal üzerinden: `sudo raspi-config` komutunu çalıştırın
+
+2. Aşağıdaki ayarları yapılandırın:
+   - System Options > Password: Güvenlik için varsayılan şifreyi değiştirin
+   - Interface Options > SSH: SSH'ı etkinleştirin (uzaktan erişim için)
+   - Interface Options > I2C: I2C'yi etkinleştirin (sensörler için)
+   - Interface Options > SPI: SPI'yı etkinleştirin (sensörler için)
+   - Interface Options > Serial Port: Seri portu etkinleştirin (gerekirse)
+   - Performance Options > GPU Memory: 64MB olarak ayarlayın (headless çalışma için)
+   - Localisation Options: Gerekirse yerel ayarları güncelleyin
+
+3. Yapılandırmayı tamamladıktan sonra "Finish" seçeneğini seçin ve Raspberry Pi'yi yeniden başlatın.
+
+## 4. Sistem Güncellemesi ve Gerekli Paketlerin Kurulumu
+
+### 4.1. Sistem Güncellemesi
+
+Terminal açın ve aşağıdaki komutları çalıştırın:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+### 4.2. Gerekli Paketlerin Kurulumu
+
+Akıllı sulama sistemi için gerekli paketleri yükleyin:
+
+```bash
+# Genel araçlar ve kütüphaneler
+sudo apt install -y git python3-pip python3-dev
+
+# I2C ve GPIO kütüphaneleri
+sudo apt install -y python3-smbus i2c-tools python3-rpi.gpio
+
+# SQLite veritabanı
+sudo apt install -y sqlite3
+
+# Web sunucusu (Flask için)
+sudo apt install -y nginx
+
+# Diğer gerekli araçlar
+sudo apt install -y build-essential libffi-dev libssl-dev
+```
+
+### 4.3. Python Kütüphanelerinin Kurulumu
+
+Gerekli Python kütüphanelerini pip ile yükleyin:
+
+```bash
+# Temel kütüphaneler
+pip3 install --upgrade pip
+pip3 install wheel setuptools
+
+# Sensör kütüphaneleri
+pip3 install adafruit-circuitpython-dht
+pip3 install adafruit-circuitpython-ads1x15
+pip3 install RPi.GPIO
+
+# Web uygulaması ve API için
+pip3 install flask flask-restful flask-cors gunicorn
+
+# Veritabanı için
+pip3 install sqlalchemy
+
+# Grafik ve veri analizi için
+pip3 install matplotlib pandas numpy
+
+# MQTT (isteğe bağlı, IoT entegrasyonu için)
+pip3 install paho-mqtt
+```
+
+## 5. Otomatik Başlatma Ayarları
+
+Sistemin Raspberry Pi her açıldığında otomatik olarak başlaması için bir servis oluşturun:
+
+### 5.1. Servis Dosyası Oluşturma
+
+```bash
+sudo nano /etc/systemd/system/irrigation.service
+```
+
+Aşağıdaki içeriği dosyaya ekleyin:
+
+```ini
+[Unit]
+Description=Akıllı Sulama Sistemi
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/irrigation-system/main.py
+WorkingDirectory=/home/pi/irrigation-system
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Dosyayı kaydetmek için CTRL+O, ardından CTRL+X tuşlarına basın.
+
+### 5.2. Servisi Etkinleştirme
+
+```bash
+sudo systemctl enable irrigation.service
+sudo systemctl start irrigation.service
+```
+
+Servisin durumunu kontrol etmek için:
+
+```bash
+sudo systemctl status irrigation.service
+```
+
+## 6. Uzaktan Erişim Yapılandırması
+
+### 6.1. SSH Erişimi
+
+SSH zaten etkinleştirildiyse, Raspberry Pi'ye uzaktan erişebilirsiniz:
+
+```bash
+ssh pi@raspberry-pi-ip-adresi
+```
+
+IP adresini bulmak için:
+
+```bash
+hostname -I
+```
+
+### 6.2. VNC Uzak Masaüstü (İsteğe Bağlı)
+
+Grafiksel arayüz üzerinden uzaktan erişim için VNC'yi etkinleştirin:
+
+1. `sudo raspi-config` komutunu çalıştırın
+2. Interface Options > VNC > Yes seçeneğini seçin
+3. VNC sunucusunu başlatın: `sudo systemctl start vncserver-x11-serviced`
+
+Ardından, bilgisayarınıza [VNC Viewer](https://www.realvnc.com/en/connect/download/viewer/) yükleyerek Raspberry Pi'ye bağlanabilirsiniz.
+
+## 7. Güvenlik Önlemleri
+
+### 7.1. Güçlü Şifre Belirleme
+
+Varsayılan "pi" kullanıcısının şifresini değiştirin:
+
+```bash
+passwd
+```
+
+### 7.2. Firewall Yapılandırması
+
+UFW (Uncomplicated Firewall) kurun ve yapılandırın:
+
+```bash
+sudo apt install -y ufw
+sudo ufw allow ssh
+sudo ufw allow 80/tcp  # Web arayüzü için
+sudo ufw allow 1883/tcp  # MQTT için (kullanılıyorsa)
+sudo ufw enable
+```
+
+### 7.3. Otomatik Güncellemeler (İsteğe Bağlı)
+
+Güvenlik güncellemelerinin otomatik yüklenmesi için:
+
+```bash
+sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+## 8. Yedekleme Stratejisi
+
+### 8.1. SD Kart Yedekleme
+
+Raspberry Pi'nin SD kartının bir görüntüsünü almak için, başka bir bilgisayarda:
+
+- Windows: Win32 Disk Imager kullanabilirsiniz
+- Linux/Mac: `dd` komutunu kullanabilirsiniz
+
+### 8.2. Veritabanı Yedekleme
+
+Veritabanını düzenli olarak yedeklemek için bir cron görevi oluşturun:
+
+```bash
+# Crontab düzenleyicisini açın
+crontab -e
+
+# Her gün gece yarısı veritabanını yedeklemek için aşağıdaki satırı ekleyin
+0 0 * * * sqlite3 /home/pi/irrigation-system/irrigation_data.db .dump > /home/pi/backups/irrigation_backup_$(date +\%Y\%m\%d).sql
+```
+
+### 8.3. Yapılandırma Dosyaları Yedekleme
+
+Önemli yapılandırma dosyalarını yedeklemek için:
+
+```bash
+mkdir -p ~/backups/config
+cp /etc/systemd/system/irrigation.service ~/backups/config/
+cp ~/irrigation-system/config.json ~/backups/config/
+```
+
+## 9. Sorun Giderme
+
+### 9.1. Sistem Günlüklerini Kontrol Etme
+
+```bash
+# Sistem günlüklerini görüntüleme
+sudo journalctl -u irrigation.service
+
+# Son 100 satırı görüntüleme
+sudo journalctl -u irrigation.service -n 100
+
+# Gerçek zamanlı günlük takibi
+sudo journalctl -u irrigation.service -f
+```
+
+### 9.2. Sensör Sorunları
+
+I2C sensörlerini kontrol etmek için:
+
+```bash
+sudo i2cdetect -y 1
+```
+
+GPIO pinlerini test etmek için:
+
+```bash
+# GPIO kütüphanesini yükleyin (eğer yüklü değilse)
+sudo apt install -y python3-gpiozero
+
+# Test için Python kabuğunu açın
+python3
+
+# Python kabuğunda:
+from gpiozero import LED
+led = LED(17)  # 17 numaralı GPIO pini
+led.on()       # Pini yüksek seviyeye getir
+led.off()      # Pini düşük seviyeye getir
+```
+
+### 9.3. Ağ Sorunları
+
+Ağ bağlantısını test etmek için:
+
+```bash
+ping -c 4 google.com
+```
+
+Wi-Fi yapılandırmasını kontrol etmek için:
+
+```bash
+sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+## 10. Performans İyileştirmeleri
+
+### 10.1. Swap Boyutunu Artırma
+
+```bash
+# Mevcut swap boyutunu kontrol edin
+free -h
+
+# Swap dosyasını kapatın
+sudo dphys-swapfile swapoff
+
+# Swap boyutunu düzenleyin
+sudo nano /etc/dphys-swapfile
+# CONF_SWAPSIZE=100 değerini CONF_SWAPSIZE=1024 olarak değiştirin
+
+# Swap dosyasını yeniden başlatın
+sudo dphys-swapfile setup
+sudo dphys-swapfile swapon
+```
+
+### 10.2. Gereksiz Servisleri Devre Dışı Bırakma
+
+Headless (ekransız) çalışma için gereksiz servisleri devre dışı bırakabilirsiniz:
+
+```bash
+# Bluetooth'u devre dışı bırakma
+sudo systemctl disable bluetooth.service
+
+# CUPS yazdırma sistemini devre dışı bırakma
+sudo systemctl disable cups.service
+```
+
+### 10.3. Dosya Sistemi Optimizasyonu
+
+```bash
+# Dosya sistemi kontrolü
+sudo fsck -f /dev/mmcblk0p2
+
+# Disk kullanımını kontrol etme
+df -h
+```
+
+## 11. Raspberry Pi'yi Kapatma ve Yeniden Başlatma
+
+Güvenli kapatma:
+
+```bash
+sudo shutdown -h now
+```
+
+Yeniden başlatma:
+
+```bash
+sudo reboot
+```
+
+## 12. Faydalı İpuçları
+
+- **Statik IP Adresi**: Raspberry Pi'ye sabit bir IP adresi atamak için `/etc/dhcpcd.conf` dosyasını düzenleyin.
+- **Uzaktan Dosya Transferi**: `scp` veya `rsync` komutlarını kullanarak dosyaları uzaktan aktarabilirsiniz.
+- **Otomatik Yeniden Başlatma**: Haftalık yeniden başlatma için cron görevi ekleyebilirsiniz.
+- **Sıcaklık Kontrolü**: `vcgencmd measure_temp` komutu ile CPU sıcaklığını kontrol edebilirsiniz.
+- **Disk Kullanımı**: `ncdu` aracını kullanarak disk kullanımını analiz edebilirsiniz.
+
+Bu rehber, Akıllı Sulama Sistemi projesi için Raspberry Pi kurulumunu ve yapılandırmasını kapsamaktadır. Sistem gereksinimlerinize göre ek yapılandırmalar veya kurulumlar gerekebilir.

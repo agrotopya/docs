@@ -1,0 +1,597 @@
+---
+title: Mobil Uygulama Mimarisi ve Kodları
+description: Mobil uygulama mimarisi ve kod örnekleri
+icon: mobile
+---
+
+# Mobil Uygulama Mimarisi ve Kodları
+
+Bu bölümde, akıllı sulama sistemimiz için mobil uygulama mimarisini ve ilgili kod örneklerini bulacaksınız. Mobil uygulama, React Native kullanılarak geliştirilecek ve hem Android hem de iOS platformlarında çalışacaktır.
+
+## 1. Uygulama Mimarisi
+
+Mobil uygulama, aşağıdaki temel bileşenlerden oluşacaktır:
+
+- **Kullanıcı Arayüzü (UI)**: Kullanıcının sistemle etkileşime geçtiği ekranlar
+- **Durum Yönetimi**: Redux kullanarak uygulama durumunun yönetimi
+- **API Servisleri**: Raspberry Pi üzerinde çalışan API ile iletişim
+- **Yerel Depolama**: Kullanıcı tercihlerini ve çevrimdışı verileri saklamak için
+- **Bildirim Sistemi**: Önemli olaylar için kullanıcıya bildirim gönderme
+
+### 1.1. Klasör Yapısı
+
+```
+irrigation-app/
+├── android/                # Android özel dosyaları
+├── ios/                    # iOS özel dosyaları
+├── src/
+│   ├── assets/             # Resimler, fontlar, vb.
+│   ├── components/         # Yeniden kullanılabilir UI bileşenleri
+│   │   ├── common/         # Genel bileşenler (butonlar, giriş alanları, vb.)
+│   │   ├── charts/         # Grafik bileşenleri
+│   │   └── layout/         # Düzen bileşenleri
+│   ├── screens/            # Uygulama ekranları
+│   │   ├── auth/           # Kimlik doğrulama ekranları
+│   │   ├── dashboard/      # Ana panel ekranları
+│   │   ├── settings/       # Ayarlar ekranları
+│   │   └── zones/          # Sulama bölgeleri ekranları
+│   ├── navigation/         # Gezinme yapılandırması
+│   ├── redux/              # Redux durum yönetimi
+│   │   ├── actions/        # Redux eylemleri
+│   │   ├── reducers/       # Redux indirgeyicileri
+│   │   ├── store.js        # Redux mağazası
+│   │   └── types.js        # Eylem türleri
+│   ├── services/           # API ve diğer servisler
+│   │   ├── api.js          # API istemcisi
+│   │   ├── auth.js         # Kimlik doğrulama servisi
+│   │   └── notifications.js # Bildirim servisi
+│   ├── utils/              # Yardımcı fonksiyonlar
+│   ├── constants/          # Sabitler ve yapılandırma
+│   ├── hooks/              # Özel React kancaları
+│   └── App.js              # Ana uygulama bileşeni
+├── .env                    # Ortam değişkenleri
+├── app.json                # Uygulama yapılandırması
+├── package.json            # Bağımlılıklar ve komutlar
+└── README.md               # Proje dokümantasyonu
+```
+
+## 2. Kurulum ve Yapılandırma
+
+### 2.1. Proje Oluşturma
+
+```bash
+# React Native CLI kurulumu
+npm install -g react-native-cli
+
+# Yeni proje oluşturma
+npx react-native init IrrigationApp
+
+# Proje dizinine geçiş
+cd IrrigationApp
+
+# Gerekli paketlerin kurulumu
+npm install @react-navigation/native @react-navigation/stack @react-navigation/bottom-tabs
+npm install react-redux redux redux-thunk
+npm install axios moment react-native-chart-kit
+npm install @react-native-async-storage/async-storage
+npm install react-native-vector-icons
+npm install react-native-gesture-handler react-native-reanimated
+npm install react-native-push-notification
+```
+
+### 2.2. Ortam Değişkenleri
+
+`.env` dosyası oluşturun:
+
+```
+API_URL=http://your-raspberry-pi-ip:5000/api
+```
+
+## 3. Temel Bileşenler ve Ekranlar
+
+### 3.1. Ana Uygulama Bileşeni (App.js)
+
+```jsx
+// src/App.js
+import React, { useEffect } from 'react';
+import { StatusBar, LogBox } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider } from 'react-redux';
+import store from './redux/store';
+import AppNavigator from './navigation/AppNavigator';
+import { initNotifications } from './services/notifications';
+
+// Bazı uyarıları görmezden gel
+LogBox.ignoreLogs(['Remote debugger']);
+
+const App = () => {
+  useEffect(() => {
+    // Bildirimleri başlat
+    initNotifications();
+  }, []);
+
+  return (
+    <Provider store={store}>
+      <NavigationContainer>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <AppNavigator />
+      </NavigationContainer>
+    </Provider>
+  );
+};
+
+export default App;
+```
+
+### 3.2. Gezinme Yapılandırması
+
+```jsx
+// src/navigation/AppNavigator.js
+import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSelector } from 'react-redux';
+
+// Kimlik doğrulama ekranları
+import LoginScreen from '../screens/auth/LoginScreen';
+import RegisterScreen from '../screens/auth/RegisterScreen';
+
+// Ana ekranlar
+import DashboardScreen from '../screens/dashboard/DashboardScreen';
+import ZonesScreen from '../screens/zones/ZonesScreen';
+import ZoneDetailScreen from '../screens/zones/ZoneDetailScreen';
+import SettingsScreen from '../screens/settings/SettingsScreen';
+import ProfileScreen from '../screens/settings/ProfileScreen';
+import NotificationsScreen from '../screens/settings/NotificationsScreen';
+
+const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+
+// Ana sekme gezinmesi
+const MainTabNavigator = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Dashboard') {
+            iconName = 'view-dashboard';
+          } else if (route.name === 'Zones') {
+            iconName = 'flower';
+          } else if (route.name === 'Settings') {
+            iconName = 'cog';
+          }
+
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+      })}
+      tabBarOptions={{
+        activeTintColor: '#4CAF50',
+        inactiveTintColor: 'gray',
+      }}
+    >
+      <Tab.Screen 
+        name="Dashboard" 
+        component={DashboardScreen} 
+        options={{ title: 'Ana Panel' }}
+      />
+      <Tab.Screen 
+        name="Zones" 
+        component={ZonesNavigator} 
+        options={{ title: 'Bölgeler' }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsNavigator} 
+        options={{ title: 'Ayarlar' }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+// Bölgeler için yığın gezinmesi
+const ZonesNavigator = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="ZonesList" 
+        component={ZonesScreen} 
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="ZoneDetail" 
+        component={ZoneDetailScreen} 
+        options={({ route }) => ({ title: route.params.zoneName })}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Ayarlar için yığın gezinmesi
+const SettingsNavigator = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="SettingsList" 
+        component={SettingsScreen} 
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'Profil' }}
+      />
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen} 
+        options={{ title: 'Bildirimler' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Ana gezinme
+const AppNavigator = () => {
+  const { isAuthenticated } = useSelector(state => state.auth);
+
+  return (
+    <Stack.Navigator>
+      {!isAuthenticated ? (
+        // Kimlik doğrulama ekranları
+        <>
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen} 
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="Register" 
+            component={RegisterScreen} 
+            options={{ title: 'Kayıt Ol' }}
+          />
+        </>
+      ) : (
+        // Ana uygulama ekranları
+        <Stack.Screen 
+          name="Main" 
+          component={MainTabNavigator} 
+          options={{ headerShown: false }}
+        />
+      )}
+    </Stack.Navigator>
+  );
+};
+
+export default AppNavigator;
+```
+
+## 4. Redux Durum Yönetimi
+
+### 4.1. Redux Store
+
+```jsx
+// src/redux/store.js
+import { createStore, applyMiddleware, combineReducers } from 'redux';
+import thunk from 'redux-thunk';
+import authReducer from './reducers/authReducer';
+import zonesReducer from './reducers/zonesReducer';
+import sensorReducer from './reducers/sensorReducer';
+import settingsReducer from './reducers/settingsReducer';
+import notificationsReducer from './reducers/notificationsReducer';
+
+const rootReducer = combineReducers({
+  auth: authReducer,
+  zones: zonesReducer,
+  sensors: sensorReducer,
+  settings: settingsReducer,
+  notifications: notificationsReducer,
+});
+
+const store = createStore(rootReducer, applyMiddleware(thunk));
+
+export default store;
+```
+
+### 4.2. Eylem Türleri
+
+```jsx
+// src/redux/types.js
+// Kimlik doğrulama
+export const LOGIN_REQUEST = 'LOGIN_REQUEST';
+export const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
+export const LOGIN_FAILURE = 'LOGIN_FAILURE';
+export const LOGOUT = 'LOGOUT';
+
+// Bölgeler
+export const FETCH_ZONES_REQUEST = 'FETCH_ZONES_REQUEST';
+export const FETCH_ZONES_SUCCESS = 'FETCH_ZONES_SUCCESS';
+export const FETCH_ZONES_FAILURE = 'FETCH_ZONES_FAILURE';
+export const UPDATE_ZONE_REQUEST = 'UPDATE_ZONE_REQUEST';
+export const UPDATE_ZONE_SUCCESS = 'UPDATE_ZONE_SUCCESS';
+export const UPDATE_ZONE_FAILURE = 'UPDATE_ZONE_FAILURE';
+
+// Sensörler
+export const FETCH_SENSOR_DATA_REQUEST = 'FETCH_SENSOR_DATA_REQUEST';
+export const FETCH_SENSOR_DATA_SUCCESS = 'FETCH_SENSOR_DATA_SUCCESS';
+export const FETCH_SENSOR_DATA_FAILURE = 'FETCH_SENSOR_DATA_FAILURE';
+
+// Sulama olayları
+export const FETCH_WATERING_EVENTS_REQUEST = 'FETCH_WATERING_EVENTS_REQUEST';
+export const FETCH_WATERING_EVENTS_SUCCESS = 'FETCH_WATERING_EVENTS_SUCCESS';
+export const FETCH_WATERING_EVENTS_FAILURE = 'FETCH_WATERING_EVENTS_FAILURE';
+export const TRIGGER_WATERING_REQUEST = 'TRIGGER_WATERING_REQUEST';
+export const TRIGGER_WATERING_SUCCESS = 'TRIGGER_WATERING_SUCCESS';
+export const TRIGGER_WATERING_FAILURE = 'TRIGGER_WATERING_FAILURE';
+
+// Ayarlar
+export const FETCH_SETTINGS_REQUEST = 'FETCH_SETTINGS_REQUEST';
+export const FETCH_SETTINGS_SUCCESS = 'FETCH_SETTINGS_SUCCESS';
+export const FETCH_SETTINGS_FAILURE = 'FETCH_SETTINGS_FAILURE';
+export const UPDATE_SETTINGS_REQUEST = 'UPDATE_SETTINGS_REQUEST';
+export const UPDATE_SETTINGS_SUCCESS = 'UPDATE_SETTINGS_SUCCESS';
+export const UPDATE_SETTINGS_FAILURE = 'UPDATE_SETTINGS_FAILURE';
+
+// Bildirimler
+export const FETCH_NOTIFICATIONS_REQUEST = 'FETCH_NOTIFICATIONS_REQUEST';
+export const FETCH_NOTIFICATIONS_SUCCESS = 'FETCH_NOTIFICATIONS_SUCCESS';
+export const FETCH_NOTIFICATIONS_FAILURE = 'FETCH_NOTIFICATIONS_FAILURE';
+export const MARK_NOTIFICATION_READ = 'MARK_NOTIFICATION_READ';
+```
+
+### 4.3. Eylemler
+
+```jsx
+// src/redux/actions/authActions.js
+import { 
+  LOGIN_REQUEST, 
+  LOGIN_SUCCESS, 
+  LOGIN_FAILURE, 
+  LOGOUT 
+} from '../types';
+import authService from '../../services/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const login = (username, password) => async dispatch => {
+  dispatch({ type: LOGIN_REQUEST });
+  
+  try {
+    const response = await authService.login(username, password);
+    const { token, user } = response.data;
+    
+    // Token'ı yerel depolamaya kaydet
+    await AsyncStorage.setItem('token', token);
+    
+    dispatch({
+      type: LOGIN_SUCCESS,
+      payload: { token, user }
+    });
+    
+    return Promise.resolve(response.data);
+  } catch (error) {
+    dispatch({
+      type: LOGIN_FAILURE,
+      payload: error.response ? error.response.data.message : 'Bağlantı hatası'
+    });
+    
+    return Promise.reject(error);
+  }
+};
+
+export const logout = () => async dispatch => {
+  // Token'ı yerel depolamadan kaldır
+  await AsyncStorage.removeItem('token');
+  
+  dispatch({ type: LOGOUT });
+};
+
+export const checkAuth = () => async dispatch => {
+  dispatch({ type: LOGIN_REQUEST });
+  
+  try {
+    // Token'ı yerel depolamadan al
+    const token = await AsyncStorage.getItem('token');
+    
+    if (!token) {
+      dispatch({ type: LOGOUT });
+      return;
+    }
+    
+    // Token'ın geçerliliğini kontrol et
+    const response = await authService.checkToken(token);
+    
+    dispatch({
+      type: LOGIN_SUCCESS,
+      payload: { token, user: response.data.user }
+    });
+  } catch (error) {
+    // Token geçersizse çıkış yap
+    await AsyncStorage.removeItem('token');
+    dispatch({ type: LOGOUT });
+  }
+};
+```
+
+```jsx
+// src/redux/actions/zonesActions.js
+import { 
+  FETCH_ZONES_REQUEST, 
+  FETCH_ZONES_SUCCESS, 
+  FETCH_ZONES_FAILURE,
+  UPDATE_ZONE_REQUEST,
+  UPDATE_ZONE_SUCCESS,
+  UPDATE_ZONE_FAILURE
+} from '../types';
+import api from '../../services/api';
+
+export const fetchZones = () => async dispatch => {
+  dispatch({ type: FETCH_ZONES_REQUEST });
+  
+  try {
+    const response = await api.get('/zones');
+    
+    dispatch({
+      type: FETCH_ZONES_SUCCESS,
+      payload: response.data
+    });
+    
+    return Promise.resolve(response.data);
+  } catch (error) {
+    dispatch({
+      type: FETCH_ZONES_FAILURE,
+      payload: error.response ? error.response.data.message : 'Bağlantı hatası'
+    });
+    
+    return Promise.reject(error);
+  }
+};
+
+export const updateZone = (zoneId, zoneData) => async dispatch => {
+  dispatch({ type: UPDATE_ZONE_REQUEST });
+  
+  try {
+    const response = await api.put(`/zones/${zoneId}`, zoneData);
+    
+    dispatch({
+      type: UPDATE_ZONE_SUCCESS,
+      payload: response.data
+    });
+    
+    return Promise.resolve(response.data);
+  } catch (error) {
+    dispatch({
+      type: UPDATE_ZONE_FAILURE,
+      payload: error.response ? error.response.data.message : 'Bağlantı hatası'
+    });
+    
+    return Promise.reject(error);
+  }
+};
+```
+
+```jsx
+// src/redux/actions/sensorActions.js
+import { 
+  FETCH_SENSOR_DATA_REQUEST, 
+  FETCH_SENSOR_DATA_SUCCESS, 
+  FETCH_SENSOR_DATA_FAILURE 
+} from '../types';
+import api from '../../services/api';
+
+export const fetchSensorData = (sensorType, zoneId, days = 7) => async dispatch => {
+  dispatch({ type: FETCH_SENSOR_DATA_REQUEST });
+  
+  try {
+    const response = await api.get('/sensor-data', {
+      params: { sensor_type: sensorType, zone_id: zoneId, days }
+    });
+    
+    dispatch({
+      type: FETCH_SENSOR_DATA_SUCCESS,
+      payload: {
+        sensorType,
+        zoneId,
+        data: response.data
+      }
+    });
+    
+    return Promise.resolve(response.data);
+  } catch (error) {
+    dispatch({
+      type: FETCH_SENSOR_DATA_FAILURE,
+      payload: error.response ? error.response.data.message : 'Bağlantı hatası'
+    });
+    
+    return Promise.reject(error);
+  }
+};
+```
+
+### 4.4. İndirgeyiciler
+
+```jsx
+// src/redux/reducers/authReducer.js
+import { 
+  LOGIN_REQUEST, 
+  LOGIN_SUCCESS, 
+  LOGIN_FAILURE, 
+  LOGOUT 
+} from '../types';
+
+const initialState = {
+  token: null,
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+  error: null
+};
+
+export default function authReducer(state = initialState, action) {
+  switch (action.type) {
+    case LOGIN_REQUEST:
+      return {
+        ...state,
+        loading: true,
+        error: null
+      };
+    case LOGIN_SUCCESS:
+      return {
+        ...state,
+        token: action.payload.token,
+        user: action.payload.user,
+        isAuthenticated: true,
+        loading: false,
+        error: null
+      };
+    case LOGIN_FAILURE:
+      return {
+        ...state,
+        token: null,
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+        error: action.payload
+      };
+    case LOGOUT:
+      return {
+        ...state,
+        token: null,
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+        error: null
+      };
+    default:
+      return state;
+  }
+}
+```
+
+```jsx
+// src/redux/reducers/zonesReducer.js
+import { 
+  FETCH_ZONES_REQUEST, 
+  FETCH_ZONES_SUCCESS, 
+  FETCH_ZONES_FAILURE,
+  UPDATE_ZONE_REQUEST,
+  UPDATE_ZONE_SUCCESS,
+  UPDATE_ZONE_FAILURE
+} from '../types';
+
+const initialState = {
+  zones: [],
+  loading: false,
+  error: null,
+  updating: false,
+  updateError: null
+};
+
+export default function zonesReducer(state = initialState, action) {
+  switch (action.type) {
+    case FETCH_ZONES_REQUEST:
+      return {
+        ...state,
+        loading: true,
+     
+(Content truncated due to size limit. Use line ranges to read in chunks)

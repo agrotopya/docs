@@ -1,0 +1,421 @@
+---
+title: Veritabanı Yapısı
+description:  Akıllı sulama sistemi için veritabanı yapısı ve SQL kodları
+icon: circle-stack
+---
+
+# Veritabanı Yapısı
+
+Bu bölümde, akıllı sulama sistemimiz için veritabanı yapısını ve ilgili SQL kodlarını bulacaksınız. SQLite veritabanı kullanarak sensör verilerini, sulama olaylarını, bitki profillerini ve sistem ayarlarını saklayacağız.
+
+## 1. Veritabanı Şeması
+
+```sql
+-- database_schema.sql
+-- Akıllı Sulama Sistemi Veritabanı Şeması
+
+-- Sensör verileri tablosu
+CREATE TABLE IF NOT EXISTS sensor_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    sensor_type TEXT NOT NULL,  -- 'soil_moisture', 'temperature', 'humidity', 'light', 'rain', 'water_level'
+    sensor_id INTEGER NOT NULL,
+    zone_id INTEGER NOT NULL,
+    value REAL NOT NULL,
+    raw_value REAL,
+    battery_level REAL,
+    status TEXT DEFAULT 'normal'  -- 'normal', 'warning', 'error'
+);
+
+-- Sulama olayları tablosu
+CREATE TABLE IF NOT EXISTS watering_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    zone_id INTEGER NOT NULL,
+    duration INTEGER NOT NULL,  -- Saniye cinsinden
+    water_amount REAL,  -- Mililitre cinsinden
+    trigger_type TEXT NOT NULL,  -- 'automatic', 'scheduled', 'manual'
+    trigger_source TEXT,  -- 'moisture_low', 'schedule_daily', 'user_app', vb.
+    auto_adjusted BOOLEAN DEFAULT 0,
+    status TEXT DEFAULT 'completed'  -- 'completed', 'cancelled', 'error'
+);
+
+-- Bitki profilleri tablosu
+CREATE TABLE IF NOT EXISTS plant_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    min_moisture REAL NOT NULL,
+    optimal_moisture REAL NOT NULL,
+    max_moisture REAL NOT NULL,
+    watering_duration INTEGER NOT NULL,  -- Saniye cinsinden
+    preferred_time TEXT,  -- HH:MM formatında
+    zone_id INTEGER,  -- NULL ise genel profil
+    is_default BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sulama bölgeleri tablosu
+CREATE TABLE IF NOT EXISTS zones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    plant_type TEXT,
+    area REAL,  -- Metrekare cinsinden
+    active BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Zamanlama tablosu
+CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    zone_id INTEGER NOT NULL,
+    time TEXT NOT NULL,  -- HH:MM formatında
+    days TEXT NOT NULL,  -- JSON formatında gün listesi: ["monday", "wednesday", "friday"]
+    duration INTEGER NOT NULL,  -- Saniye cinsinden
+    enabled BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (zone_id) REFERENCES zones (id)
+);
+
+-- Sistem ayarları tablosu
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    setting_key TEXT NOT NULL UNIQUE,
+    setting_value TEXT NOT NULL,
+    setting_type TEXT NOT NULL,  -- 'string', 'integer', 'float', 'boolean', 'json'
+    description TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sistem günlükleri tablosu
+CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    log_level TEXT NOT NULL,  -- 'info', 'warning', 'error', 'critical'
+    component TEXT NOT NULL,  -- 'sensor', 'pump', 'scheduler', 'system', vb.
+    message TEXT NOT NULL,
+    details TEXT
+);
+
+-- Kullanıcı tablosu
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    email TEXT UNIQUE,
+    role TEXT DEFAULT 'user',  -- 'admin', 'user', 'guest'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME
+);
+
+-- Bildirimler tablosu
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id INTEGER,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,  -- 'info', 'warning', 'error', 'success'
+    read BOOLEAN DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- İndeksler
+CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data (timestamp);
+CREATE INDEX IF NOT EXISTS idx_sensor_data_type_zone ON sensor_data (sensor_type, zone_id);
+CREATE INDEX IF NOT EXISTS idx_watering_events_timestamp ON watering_events (timestamp);
+CREATE INDEX IF NOT EXISTS idx_watering_events_zone ON watering_events (zone_id);
+CREATE INDEX IF NOT EXISTS idx_schedules_zone ON schedules (zone_id);
+CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs (timestamp);
+CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs (log_level);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);
+```
+
+## 2. Veritabanı Yönetim Sınıfı
+
+```python
+# database_manager.py
+import sqlite3
+import json
+import logging
+import os
+from datetime import datetime, timedelta
+
+# Loglama ayarları
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("database_manager.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("DatabaseManager")
+
+class DatabaseManager:
+    def __init__(self, db_path="irrigation_data.db"):
+        """
+        Veritabanı yönetim sınıfı
+        
+        Args:
+            db_path: Veritabanı dosya yolu
+        """
+        self.db_path = db_path
+        self.conn = None
+        
+        # Veritabanı bağlantısını oluştur
+        self.connect()
+        
+        # Veritabanı şemasını oluştur
+        self.create_schema()
+        
+        # Varsayılan ayarları ekle
+        self.initialize_default_settings()
+        
+        logger.info(f"Veritabanı yöneticisi başlatıldı: {db_path}")
+    
+    def connect(self):
+        """
+        Veritabanına bağlan
+        """
+        try:
+            self.conn = sqlite3.connect(self.db_path)
+            self.conn.row_factory = sqlite3.Row  # Sonuçları sözlük olarak al
+            logger.info(f"Veritabanına bağlandı: {self.db_path}")
+        except Exception as e:
+            logger.error(f"Veritabanı bağlantı hatası: {str(e)}")
+            raise
+    
+    def close(self):
+        """
+        Veritabanı bağlantısını kapat
+        """
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+            logger.info("Veritabanı bağlantısı kapatıldı")
+    
+    def create_schema(self):
+        """
+        Veritabanı şemasını oluştur
+        """
+        try:
+            cursor = self.conn.cursor()
+            
+            # SQL dosyasını oku
+            schema_file = "database_schema.sql"
+            
+            if os.path.exists(schema_file):
+                with open(schema_file, 'r') as f:
+                    schema_sql = f.read()
+                
+                # SQL komutlarını çalıştır
+                cursor.executescript(schema_sql)
+                self.conn.commit()
+                logger.info("Veritabanı şeması oluşturuldu")
+            else:
+                # SQL dosyası yoksa, şemayı doğrudan oluştur
+                logger.warning("Şema dosyası bulunamadı, şema doğrudan oluşturuluyor")
+                
+                # Sensör verileri tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS sensor_data (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        sensor_type TEXT NOT NULL,
+                        sensor_id INTEGER NOT NULL,
+                        zone_id INTEGER NOT NULL,
+                        value REAL NOT NULL,
+                        raw_value REAL,
+                        battery_level REAL,
+                        status TEXT DEFAULT 'normal'
+                    )
+                ''')
+                
+                # Sulama olayları tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS watering_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        zone_id INTEGER NOT NULL,
+                        duration INTEGER NOT NULL,
+                        water_amount REAL,
+                        trigger_type TEXT NOT NULL,
+                        trigger_source TEXT,
+                        auto_adjusted BOOLEAN DEFAULT 0,
+                        status TEXT DEFAULT 'completed'
+                    )
+                ''')
+                
+                # Bitki profilleri tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS plant_profiles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        min_moisture REAL NOT NULL,
+                        optimal_moisture REAL NOT NULL,
+                        max_moisture REAL NOT NULL,
+                        watering_duration INTEGER NOT NULL,
+                        preferred_time TEXT,
+                        zone_id INTEGER,
+                        is_default BOOLEAN DEFAULT 0,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Sulama bölgeleri tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS zones (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        plant_type TEXT,
+                        area REAL,
+                        active BOOLEAN DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Zamanlama tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS schedules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        zone_id INTEGER NOT NULL,
+                        time TEXT NOT NULL,
+                        days TEXT NOT NULL,
+                        duration INTEGER NOT NULL,
+                        enabled BOOLEAN DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (zone_id) REFERENCES zones (id)
+                    )
+                ''')
+                
+                # Sistem ayarları tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS system_settings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        setting_key TEXT NOT NULL UNIQUE,
+                        setting_value TEXT NOT NULL,
+                        setting_type TEXT NOT NULL,
+                        description TEXT,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Sistem günlükleri tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS system_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        log_level TEXT NOT NULL,
+                        component TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        details TEXT
+                    )
+                ''')
+                
+                # Kullanıcı tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL,
+                        email TEXT UNIQUE,
+                        role TEXT DEFAULT 'user',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        last_login DATETIME
+                    )
+                ''')
+                
+                # Bildirimler tablosu
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        user_id INTEGER,
+                        title TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        read BOOLEAN DEFAULT 0,
+                        FOREIGN KEY (user_id) REFERENCES users (id)
+                    )
+                ''')
+                
+                # İndeksler
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data (timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_data_type_zone ON sensor_data (sensor_type, zone_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_watering_events_timestamp ON watering_events (timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_watering_events_zone ON watering_events (zone_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_schedules_zone ON schedules (zone_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs (timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs (log_level)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id)')
+                
+                self.conn.commit()
+                logger.info("Veritabanı şeması oluşturuldu")
+            
+        except Exception as e:
+            logger.error(f"Şema oluşturma hatası: {str(e)}")
+            raise
+    
+    def initialize_default_settings(self):
+        """
+        Varsayılan sistem ayarlarını ekle
+        """
+        try:
+            # Varsayılan ayarlar
+            default_settings = [
+                {
+                    'key': 'system_name',
+                    'value': 'Akıllı Sulama Sistemi',
+                    'type': 'string',
+                    'description': 'Sistem adı'
+                },
+                {
+                    'key': 'auto_mode_enabled',
+                    'value': 'true',
+                    'type': 'boolean',
+                    'description': 'Otomatik sulama modu etkin mi'
+                },
+                {
+                    'key': 'check_interval',
+                    'value': '300',
+                    'type': 'integer',
+                    'description': 'Sensör kontrol aralığı (saniye)'
+                },
+                {
+                    'key': 'moisture_thresholds',
+                    'value': json.dumps({
+                        'critical': 20,
+                        'low': 30,
+                        'optimal': 60,
+                        'high': 80
+                    }),
+                    'type': 'json',
+                    'description': 'Nem eşik değerleri'
+                },
+                {
+                    'key': 'watering_durations',
+                    'value': json.dumps({
+                        'short': 120,
+                        'medium': 300,
+                        'long': 600
+                    }),
+                    'type': 'json',
+                    'description': 'Sulama süreleri (saniye)'
+                },
+                {
+                    'key': 'time_restrictions',
+                    'value': json.dumps({
+                        'start_time': '06:00',
+                        'end_time': '20:00',
+                        'min_hours_between_watering': 6
+                    }),
+      
+(Content truncated due to size limit. Use line ranges to read in chunks)

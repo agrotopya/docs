@@ -1,0 +1,499 @@
+---
+title: Akıllı Sulama Sistemi Proje Rehberi
+description: Akıllı Sulama Sistemi Projesi için detaylı rehber
+icon: book-open
+---
+
+
+
+# AKILLI SULAMA SİSTEMİ PROJE REHBERİ
+
+Bu rehber, Akıllı Sulama Sistemi projesinin adım adım nasıl gerçekleştirileceğini detaylı bir şekilde anlatmaktadır. Projenin tüm aşamaları, gerekli donanım ve yazılım bileşenleri, kurulum adımları ve kod örnekleri bu dokümanda yer almaktadır.
+
+## İÇİNDEKİLER
+
+1. [Proje Genel Bakış](#1-proje-genel-bakış)
+   - [Proje Amacı](#11-proje-amacı)
+   - [Sistem Mimarisi](#12-sistem-mimarisi)
+   - [Bileşenler](#13-bileşenler)
+
+2. [Donanım Bileşenleri](#2-donanım-bileşenleri)
+   - [Gerekli Malzemeler](#21-gerekli-malzemeler)
+   - [Sensörler](#22-sensörler)
+   - [Kontrol Ünitesi](#23-kontrol-ünitesi)
+   - [Su Pompası ve Kontrol Devresi](#24-su-pompası-ve-kontrol-devresi)
+   - [Güç Kaynağı](#25-güç-kaynağı)
+
+3. [Donanım Kurulumu](#3-donanım-kurulumu)
+   - [Raspberry Pi Kurulumu](#31-raspberry-pi-kurulumu)
+   - [Sensör Bağlantıları](#32-sensör-bağlantıları)
+   - [Su Pompası Kontrol Devresi](#33-su-pompası-kontrol-devresi)
+   - [Güç Kaynağı Bağlantıları](#34-güç-kaynağı-bağlantıları)
+
+4. [Yazılım Kurulumu](#4-yazılım-kurulumu)
+   - [Raspberry Pi İşletim Sistemi](#41-raspberry-pi-işletim-sistemi)
+   - [Gerekli Kütüphaneler](#42-gerekli-kütüphaneler)
+   - [Veritabanı Kurulumu](#43-veritabanı-kurulumu)
+
+5. [Yazılım Geliştirme](#5-yazılım-geliştirme)
+   - [Sensör Veri Okuma Kodları](#51-sensör-veri-okuma-kodları)
+   - [Su Pompası Kontrol Kodları](#52-su-pompası-kontrol-kodları)
+   - [Veri Analizi ve Karar Verme Algoritmaları](#53-veri-analizi-ve-karar-verme-algoritmaları)
+   - [Veritabanı Yapısı ve Yönetimi](#54-veritabanı-yapısı-ve-yönetimi)
+
+6. [Mobil Uygulama](#6-mobil-uygulama)
+   - [Uygulama Mimarisi](#61-uygulama-mimarisi)
+   - [Kullanıcı Arayüzü](#62-kullanıcı-arayüzü)
+   - [Backend API](#63-backend-api)
+   - [Veri Görselleştirme](#64-veri-görselleştirme)
+   - [Bildirim Sistemi](#65-bildirim-sistemi)
+
+7. [Sistem Entegrasyonu](#7-sistem-entegrasyonu)
+   - [Bileşenlerin Birleştirilmesi](#71-bileşenlerin-birleştirilmesi)
+   - [Test ve Kalibrasyon](#72-test-ve-kalibrasyon)
+
+8. [Sorun Giderme ve Bakım](#8-sorun-giderme-ve-bakım)
+   - [Sık Karşılaşılan Sorunlar](#81-sık-karşılaşılan-sorunlar)
+   - [Bakım Prosedürleri](#82-bakım-prosedürleri)
+
+9. [Kaynaklar ve Referanslar](#9-kaynaklar-ve-referanslar)
+
+## 1. PROJE GENEL BAKIŞ
+
+### 1.1. Proje Amacı
+
+Akıllı Sulama Sistemi, bitkilerin su ihtiyacını otomatik olarak tespit edip, gerektiğinde sulama yapan bir sistemdir. Bu sistem, toprak nemi, sıcaklık ve nem gibi çevresel faktörleri ölçerek, bitkilerin ihtiyacı olduğunda ve optimum miktarda su sağlayarak su tasarrufu sağlar ve bitki sağlığını iyileştirir.
+
+Projenin temel amaçları:
+- Su kullanımını optimize ederek tasarruf sağlamak
+- Bitki sağlığını ve verimini artırmak
+- Manuel sulama ihtiyacını ortadan kaldırmak
+- Uzaktan izleme ve kontrol imkanı sunmak
+- Çevre dostu ve sürdürülebilir bir sulama çözümü sunmak
+
+### 1.2. Sistem Mimarisi
+
+Akıllı Sulama Sistemi, aşağıdaki ana bileşenlerden oluşan bir mimariye sahiptir:
+
+1. **Sensör Ağı**: Toprak nemi, sıcaklık, nem ve yağmur sensörleri
+2. **Kontrol Ünitesi**: Raspberry Pi tabanlı merkezi işlem birimi
+3. **Su Dağıtım Sistemi**: Su pompası ve vana kontrol mekanizması
+4. **Güç Kaynağı**: Sistem bileşenlerini besleyen güç ünitesi
+5. **Yazılım Bileşenleri**: Veri toplama, analiz ve karar verme algoritmaları
+6. **Kullanıcı Arayüzü**: Mobil uygulama ve web arayüzü
+
+Sistem mimarisi şu şekilde çalışır:
+- Sensörler çevresel verileri toplar ve Raspberry Pi'ye iletir
+- Raspberry Pi, verileri analiz eder ve sulama kararlarını verir
+- Gerektiğinde su pompası ve vanalar kontrol edilerek sulama yapılır
+- Tüm veriler veritabanında saklanır ve analiz edilir
+- Kullanıcı, mobil uygulama üzerinden sistemi izleyebilir ve kontrol edebilir
+
+### 1.3. Bileşenler
+
+#### 1.3.1. Donanım Bileşenleri
+- Raspberry Pi 4 (2GB veya üzeri RAM)
+- Toprak nemi sensörleri (kapasitif)
+- DHT22 sıcaklık ve nem sensörü
+- Yağmur sensörü
+- Su seviye sensörü
+- 12V DC su pompası
+- Röle modülü
+- 12V güç adaptörü
+- Kablolar ve bağlantı elemanları
+- Su boruları ve sulama başlıkları
+
+#### 1.3.2. Yazılım Bileşenleri
+- Raspberry Pi OS (Debian tabanlı)
+- Python programlama dili
+- SQLite veritabanı
+- Flask web çerçevesi (API için)
+- React Native (mobil uygulama için)
+- MQTT protokolü (isteğe bağlı, IoT iletişimi için)
+
+## 2. DONANIM BİLEŞENLERİ
+
+### 2.1. Gerekli Malzemeler
+
+Akıllı Sulama Sistemi projesini gerçekleştirmek için aşağıdaki malzemelere ihtiyacınız olacaktır:
+
+| Malzeme | Adet | Açıklama |
+|---------|------|----------|
+| Raspberry Pi 4 | 1 | En az 2GB RAM önerilir |
+| MicroSD Kart | 1 | En az 16GB, Class 10 |
+| Toprak Nemi Sensörü | 3-5 | Kapasitif tip (korozyona dayanıklı) |
+| DHT22 Sensör | 1 | Sıcaklık ve nem ölçümü için |
+| Yağmur Sensörü | 1 | Yağmur tespiti için |
+| Su Seviye Sensörü | 1 | Su deposu seviye kontrolü için |
+| 12V DC Su Pompası | 1 | 3-5L/dk kapasiteli |
+| 4 Kanallı Röle Modülü | 1 | 5V tetiklemeli |
+| 12V 5A Güç Adaptörü | 1 | Pompa ve sistem beslemesi için |
+| 5V 3A USB-C Adaptör | 1 | Raspberry Pi beslemesi için |
+| Breadboard | 1 | Prototip geliştirme için |
+| Jumper Kablolar | 1 set | Erkek-erkek, erkek-dişi, dişi-dişi |
+| Su Boruları | 5m | 8mm çapında |
+| Sulama Başlıkları | 5-10 | Damlatıcı veya püskürtücü |
+| Su Deposu | 1 | En az 5L kapasiteli |
+| Plastik Kutu | 1 | Elektronik bileşenleri korumak için |
+| Kablo Kanalı | 2m | Kabloları düzenlemek için |
+
+### 2.2. Sensörler
+
+#### 2.2.1. Toprak Nemi Sensörü
+
+Toprak nemi sensörleri, toprağın nem seviyesini ölçmek için kullanılır. Bu projede, uzun ömürlü ve daha doğru ölçüm yapan kapasitif tip toprak nemi sensörleri kullanılması önerilir.
+
+**Teknik Özellikler:**
+- Çalışma Gerilimi: 3.3V - 5V
+- Çıkış: Analog (0-3V) veya Dijital (Eşik değeri ayarlanabilir)
+- Ölçüm Aralığı: 0% (kuru) - 100% (tamamen ıslak)
+- Hassasiyet: ±3%
+
+**Bağlantı Pinleri:**
+- VCC: Güç girişi (3.3V veya 5V)
+- GND: Toprak
+- AO: Analog çıkış
+- DO: Dijital çıkış (bazı modellerde)
+
+#### 2.2.2. DHT22 Sıcaklık ve Nem Sensörü
+
+DHT22 sensörü, ortam sıcaklığını ve nem seviyesini ölçmek için kullanılır. Bu veriler, sulama kararlarını optimize etmek için kullanılır.
+
+**Teknik Özellikler:**
+- Çalışma Gerilimi: 3.3V - 5V
+- Sıcaklık Ölçüm Aralığı: -40°C - 80°C
+- Nem Ölçüm Aralığı: 0% - 100% RH
+- Sıcaklık Hassasiyeti: ±0.5°C
+- Nem Hassasiyeti: ±2% RH
+
+**Bağlantı Pinleri:**
+- Pin 1: VCC (3.3V - 5V)
+- Pin 2: DATA (Veri pini)
+- Pin 3: NC (Bağlantı yok)
+- Pin 4: GND (Toprak)
+
+#### 2.2.3. Yağmur Sensörü
+
+Yağmur sensörü, yağmur yağıp yağmadığını tespit etmek için kullanılır. Yağmur durumunda gereksiz sulamayı önlemek için önemlidir.
+
+**Teknik Özellikler:**
+- Çalışma Gerilimi: 3.3V - 5V
+- Çıkış: Analog ve Dijital
+- Hassasiyet: Ayarlanabilir (potansiyometre ile)
+
+**Bağlantı Pinleri:**
+- VCC: Güç girişi (3.3V veya 5V)
+- GND: Toprak
+- AO: Analog çıkış
+- DO: Dijital çıkış
+
+#### 2.2.4. Su Seviye Sensörü
+
+Su seviye sensörü, su deposundaki su seviyesini izlemek için kullanılır. Su seviyesi düştüğünde kullanıcıya bildirim gönderilir.
+
+**Teknik Özellikler:**
+- Çalışma Gerilimi: 3.3V - 5V
+- Çıkış: Analog
+- Ölçüm Aralığı: 0mm - 40mm
+
+**Bağlantı Pinleri:**
+- VCC: Güç girişi (3.3V veya 5V)
+- GND: Toprak
+- S: Sinyal çıkışı (analog)
+
+### 2.3. Kontrol Ünitesi
+
+Kontrol ünitesi olarak Raspberry Pi 4 kullanılacaktır. Raspberry Pi, sensörlerden gelen verileri işleyecek, sulama kararlarını verir ve kullanıcı arayüzü ile iletişim kuracaktır.
+
+**Teknik Özellikler:**
+- İşlemci: Broadcom BCM2711, Quad core Cortex-A72 (ARM v8) 64-bit SoC @ 1.5GHz
+- RAM: 2GB, 4GB veya 8GB LPDDR4-3200 SDRAM
+- Bağlantı: 2.4 GHz ve 5.0 GHz IEEE 802.11ac wireless, Bluetooth 5.0, BLE
+- GPIO: 40 pin
+- USB: 2 × USB 3.0 ports; 2 × USB 2.0 ports
+- Güç: 5V DC via USB-C connector (minimum 3A)
+
+**GPIO Pinleri:**
+Raspberry Pi'nin GPIO pinleri, sensörleri ve röle modülünü bağlamak için kullanılacaktır. Aşağıda kullanılacak pinlerin listesi verilmiştir:
+
+- Toprak Nemi Sensörü 1: GPIO 17 (Analog giriş için ADC gerekli)
+- Toprak Nemi Sensörü 2: GPIO 27 (Analog giriş için ADC gerekli)
+- Toprak Nemi Sensörü 3: GPIO 22 (Analog giriş için ADC gerekli)
+- DHT22 Sensörü: GPIO 4
+- Yağmur Sensörü: GPIO 18 (Analog giriş için ADC gerekli)
+- Su Seviye Sensörü: GPIO 23 (Analog giriş için ADC gerekli)
+- Röle Modülü (Pompa): GPIO 24
+- Röle Modülü (Vana 1): GPIO 25
+- Röle Modülü (Vana 2): GPIO 8
+- Röle Modülü (Vana 3): GPIO 7
+
+### 2.4. Su Pompası ve Kontrol Devresi
+
+#### 2.4.1. Su Pompası
+
+Bu projede, 12V DC dalgıç su pompası kullanılacaktır. Bu pompa, su deposundan sulama bölgelerine su taşımak için kullanılır.
+
+**Teknik Özellikler:**
+- Çalışma Gerilimi: 12V DC
+- Akım: 0.5A - 1A
+- Su Basma Kapasitesi: 3-5 L/dk
+- Maksimum Basma Yüksekliği: 3-5 metre
+
+#### 2.4.2. Röle Modülü
+
+Röle modülü, Raspberry Pi'nin düşük güçlü GPIO pinleri ile yüksek güçlü su pompasını ve vanaları kontrol etmek için kullanılır.
+
+**Teknik Özellikler:**
+- Kanal Sayısı: 4
+- Kontrol Gerilimi: 5V DC
+- Röle Kapasitesi: 10A 250VAC / 10A 30VDC
+- Tetikleme Tipi: Düşük seviye (LOW)
+
+**Bağlantı Pinleri:**
+- VCC: 5V güç girişi
+- GND: Toprak
+- IN1, IN2, IN3, IN4: Kontrol girişleri (GPIO pinlerine bağlanır)
+
+#### 2.4.3. Kontrol Devresi Şeması
+
+Su pompası ve vanaları kontrol etmek için aşağıdaki devre şeması kullanılacaktır:
+
+```
+                   +5V
+                    |
+                    |
+Raspberry Pi      10kΩ       4 Kanal Röle Modülü
+GPIO Pin -------|/\/\/\|-----|IN1    NO1|------- Su Pompası (+)
+                    |         |        |
+                    |         |       COM1|------ +12V
+                    |         |        |
+                    |         |        NC1|------ (Bağlı değil)
+                    |         |        |
+                    |         |        |
+                    |         |       GND|------ GND
+                    |         |        |
+                    |         |       VCC|------ +5V
+                    |         |        |
+                    |         |        |
+                    |         |        |
+                    |         |        |
+```
+
+Su pompasının (-) ucu doğrudan güç kaynağının GND terminaline bağlanır.
+
+### 2.5. Güç Kaynağı
+
+Sistem için iki farklı güç kaynağı kullanılacaktır:
+
+1. **Raspberry Pi için:** 5V 3A USB-C güç adaptörü
+2. **Su pompası ve diğer bileşenler için:** 12V 5A DC güç adaptörü
+
+Güç kaynakları arasında ortak GND (toprak) bağlantısı yapılmalıdır.
+
+**Güç Dağıtım Şeması:**
+
+```
+AC Güç Girişi
+     |
+     |
+     |------- 5V 3A USB-C Adaptör ------- Raspberry Pi
+     |
+     |
+     |------- 12V 5A DC Adaptör --------- Su Pompası
+                                |
+                                |--------- Röle Modülü (VCC)
+                                |
+                                |--------- Sensörler (VCC)
+```
+
+## 3. DONANIM KURULUMU
+
+### 3.1. Raspberry Pi Kurulumu
+
+Raspberry Pi kurulumu için ayrıntılı adımlar [Raspberry Pi İşletim Sistemi Kurulum Rehberi](raspberry_pi_os_setup.md) dosyasında bulunmaktadır. Temel adımlar şunlardır:
+
+1. Raspberry Pi Imager ile microSD karta Raspberry Pi OS'u yükleyin
+2. Raspberry Pi'yi bağlayın ve ilk açılış yapılandırmasını tamamlayın
+3. Gerekli sistem ayarlarını yapın (SSH, I2C, SPI etkinleştirme vb.)
+4. Sistem güncellemelerini yapın ve gerekli paketleri yükleyin
+
+### 3.2. Sensör Bağlantıları
+
+Sensörlerin Raspberry Pi'ye bağlantısı için aşağıdaki şemayı takip edin:
+
+#### 3.2.1. Toprak Nemi Sensörü Bağlantısı
+
+Raspberry Pi'nin analog giriş pini olmadığı için, toprak nemi sensörlerinin analog çıkışlarını okumak için ADS1115 ADC (Analog-Dijital Dönüştürücü) kullanılacaktır.
+
+```
+Toprak Nemi Sensörü 1:
+- VCC -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- AO --------- ADS1115 A0
+
+Toprak Nemi Sensörü 2:
+- VCC -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- AO --------- ADS1115 A1
+
+Toprak Nemi Sensörü 3:
+- VCC -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- AO --------- ADS1115 A2
+
+ADS1115:
+- VDD -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- SCL -------- SCL (Raspberry Pi Pin 5)
+- SDA -------- SDA (Raspberry Pi Pin 3)
+- ADDR -------- GND (0x48 adresi için)
+```
+
+#### 3.2.2. DHT22 Sensör Bağlantısı
+
+```
+DHT22:
+- Pin 1 (VCC) -------- 3.3V (Raspberry Pi Pin 1)
+- Pin 2 (DATA) ------- GPIO4 (Raspberry Pi Pin 7)
+- Pin 4 (GND) -------- GND (Raspberry Pi Pin 6)
+
+* Pin 2 ve Raspberry Pi arasına 10kΩ pull-up direnci bağlayın
+```
+
+#### 3.2.3. Yağmur Sensörü Bağlantısı
+
+```
+Yağmur Sensörü:
+- VCC -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- AO --------- ADS1115 A3
+- DO --------- GPIO18 (Raspberry Pi Pin 12) (Opsiyonel, dijital çıkış için)
+```
+
+#### 3.2.4. Su Seviye Sensörü Bağlantısı
+
+```
+Su Seviye Sensörü:
+- VCC -------- 3.3V (Raspberry Pi Pin 1)
+- GND -------- GND (Raspberry Pi Pin 6)
+- S ---------- ADS1115 A4 (İkinci bir ADS1115 modülü gerekebilir)
+```
+
+### 3.3. Su Pompası Kontrol Devresi
+
+Su pompası ve vanaları kontrol etmek için röle modülünü aşağıdaki gibi bağlayın:
+
+```
+Röle Modülü:
+- VCC -------- 5V (Raspberry Pi Pin 2)
+- GND -------- GND (Raspberry Pi Pin 6)
+- IN1 -------- GPIO24 (Raspberry Pi Pin 18) - Su Pompası
+- IN2 -------- GPIO25 (Raspberry Pi Pin 22) - Vana 1
+- IN3 -------- GPIO8 (Raspberry Pi Pin 24) - Vana 2
+- IN4 -------- GPIO7 (Raspberry Pi Pin 26) - Vana 3
+
+Su Pompası:
+- (+) -------- Röle Modülü NO1
+- (-) -------- 12V Güç Kaynağı GND
+
+Röle Modülü COM1 -------- 12V Güç Kaynağı (+)
+```
+
+### 3.4. Güç Kaynağı Bağlantıları
+
+Güç kaynağı bağlantıları için aşağıdaki adımları izleyin:
+
+1. Raspberry Pi'yi 5V 3A USB-C adaptör ile besleyin
+2. 12V 5A DC adaptörün (+) ucunu röle modülünün COM terminallerine bağlayın
+3. 12V 5A DC adaptörün (-) ucunu su pompasının (-) ucuna ve GND hattına bağlayın
+4. Tüm bileşenlerin GND bağlantılarını ortak bir noktada birleştirin
+
+## 4. YAZILIM KURULUMU
+
+### 4.1. Raspberry Pi İşletim Sistemi
+
+Raspberry Pi işletim sistemi kurulumu için ayrıntılı adımlar [Raspberry Pi İşletim Sistemi Kurulum Rehberi](raspberry_pi_os_setup.md) dosyasında bulunmaktadır. Temel adımlar şunlardır:
+
+1. Raspberry Pi Imager ile microSD karta Raspberry Pi OS'u yükleyin
+2. İlk açılış yapılandırmasını tamamlayın
+3. Sistem güncellemelerini yapın:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+### 4.2. Gerekli Kütüphaneler
+
+Akıllı Sulama Sistemi için gerekli Python kütüphanelerini yükleyin:
+
+```bash
+# Genel araçlar ve kütüphaneler
+sudo apt install -y git python3-pip python3-dev
+
+# I2C ve GPIO kütüphaneleri
+sudo apt install -y python3-smbus i2c-tools python3-rpi.gpio
+
+# SQLite veritabanı
+sudo apt install -y sqlite3
+
+# Web sunucusu (Flask için)
+sudo apt install -y nginx
+
+# Python kütüphaneleri
+pip3 install --upgrade pip
+pip3 install wheel setuptools
+pip3 install adafruit-circuitpython-dht
+pip3 install adafruit-circuitpython-ads1x15
+pip3 install RPi.GPIO
+pip3 install flask flask-restful flask-cors gunicorn
+pip3 install sqlalchemy
+pip3 install matplotlib pandas numpy
+pip3 install paho-mqtt
+```
+
+### 4.3. Veritabanı Kurulumu
+
+SQLite veritabanını oluşturmak ve yapılandırmak için aşağıdaki adımları izleyin:
+
+1. Proje dizinini oluşturun:
+
+```bash
+mkdir -p ~/irrigation-system
+cd ~/irrigation-system
+```
+
+2. Veritabanı şema dosyasını oluşturun:
+
+```bash
+nano database_schema.sql
+```
+
+3. [Veritabanı Yapısı](database_structure.py) dosyasındaki SQL şemasını bu dosyaya kopyalayın.
+
+4. Veritabanını oluşturun:
+
+```bash
+sqlite3 irrigation_data.db < database_schema.sql
+```
+
+5. Veritabanı yönetim sınıfını oluşturun:
+
+```bash
+nano database_manager.py
+```
+
+6. [Veritabanı Yapısı](database_structure.py) dosyasındaki `DatabaseManager` sınıfını bu dosyaya kopyalayın.
+
+## 5. YAZILIM GELİŞTİRME
+
+### 5.1. Sensör Veri Okuma Kodları
+
+Sensörlerden veri okumak için aşağıdaki Python kodunu kullanabilirsiniz. Bu kod, `sensor_reading.py` dosyasına kaydedilmelidir:
+
+```python
+# sensor_reading.py dosyasının içeriği için sensor_reading_code.py dosyasına bakın
+```
+
+[Sensör Veri Okuma Kodları](sensor_reading_code.py) dosyasındaki kodu `sensor_reading.py` dosyası
+(Content truncated due to size limit. Use line ranges to read in chunks)
